@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lighthouse Golf & Spa Hotel – Golfwoche 2026</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Lighthouse Golf & Spa Hotel, 5-Sterne-Golfresort an der Schwarzmeerküste bei Balchik, Bulgarien. Übersicht für unsere Golfgruppe 2026 mit Premium All Inclusive, Zimmerbelegung und Tee Times." />
+  <style>
+    :root {
+      --bg: #0b1924;
+      --bg-light: #f5f7fa;
+      --accent: #c89b3c;
+      --accent-soft: rgba(200, 155, 60, 0.12);
+      --text: #1f2933;
+      --text-light: #6b7280;
+      --white: #ffffff;
+      --card-radius: 18px;
+      --shadow: 0 18px 40px rgba(15, 23, 42, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1f3a56 0, #020617 55%);
+      color: var(--white);
+      line-height: 1.6;
+      padding: 0;
+      margin: 0;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 18px 6vw;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(18px);
+      background: linear-gradient(to bottom, rgba(2, 6, 23, 0.92), rgba(2, 6, 23, 0.25));
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    header h1 {
+      font-size: 1.1rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    header h1 span.logo-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 20%, #facc15, #ea580c 55%, #7c2d12 100%);
+      box-shadow: 0 0 18px rgba(250, 204, 21, 0.9);
+    }
+
+    header .tagline {
+      font-size: 0.9rem;
+      color: #9ca3af;
+    }
+
+    main {
+      flex: 1;
+      padding: 24px 6vw 40px;
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.3fr);
+      gap: 28px;
+      align-items: center;
+      margin-top: 12px;
+      margin-bottom: 30px;
+    }
+
+    .hero-text h2 {
+      font-size: 2.1rem;
+      margin-bottom: 8px;
+    }
+
+    .hero-text h2 span.highlight {
+      color: var(--accent);
+    }
+
+    .hero-text p {
+      color: #e5e7eb;
+      margin-bottom: 14px;
+      font-size: 0.95rem;
+    }
+
+    .hero-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .badge {
+      font-size: 0.78rem;
+      padding: 6px 11px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.55);
+      color: #e5e7eb;
+      background: radial-gradient(circle at top left, rgba(148, 163, 184, 0.24), rgba(15, 23, 42, 0.9));
+    }
+
+    .badge.gold {
+      border-color: rgba(250, 204, 21, 0.7);
+      background: radial-gradient(circle at top left, rgba(250, 204, 21, 0.25), rgba(15, 23, 42, 0.9));
+      color: #fef3c7;
+    }
+
+    .badge.green {
+      border-color: rgba(34, 197, 94, 0.75);
+      background: radial-gradient(circle at top left, rgba(22, 163, 74, 0.3), rgba(15, 23, 42, 0.95));
+      color: #bbf7d0;
+    }
+
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 9px 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      font-size: 0.9rem;
+      cursor: pointer;
+      background: rgba(15, 23, 42, 0.9);
+      color: #e5e7eb;
+      text-decoration: none;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, border-color 0.1s ease,
+        background 0.1s ease;
+    }
+
+    .btn-primary {
+      background: radial-gradient(circle at 30% 0, #facc15, #ea580c 55%, #7c2d12 100%);
+      color: #111827;
+      border-color: transparent;
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.5);
+      font-weight: 600;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 18px 36px rgba(15, 23, 42, 0.75);
+      border-color: rgba(226, 232, 240, 0.8);
+      text-decoration: none;
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.85);
+    }
+
+    .btn span.icon {
+      font-size: 1.1rem;
+    }
+
+    .hero-media-card {
+      background: radial-gradient(circle at top left, rgba(148, 163, 184, 0.28), rgba(15, 23, 42, 0.98));
+      border-radius: 24px;
+      padding: 10px 10px 14px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+    }
+
+    .hero-main-image {
+      border-radius: 18px;
+      overflow: hidden;
+      margin-bottom: 10px;
+      border: 1px solid rgba(15, 23, 42, 0.4);
+    }
+
+    .hero-main-image img {
+      width: 100%;
+      display: block;
+      height: auto;
+      vertical-align: middle;
+    }
+
+    .hero-caption {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+      color: #e5e7eb;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .hero-caption strong {
+      font-weight: 600;
+    }
+
+    .hero-caption span.sub {
+      color: #9ca3af;
+    }
+
+    .hero-caption span.tag {
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.55);
+      font-size: 0.75rem;
+    }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr);
+      gap: 22px;
+      align-items: flex-start;
+      margin-bottom: 26px;
+    }
+
+    .card {
+      background: rgba(15, 23, 42, 0.96);
+      border-radius: var(--card-radius);
+      padding: 18px 18px 16px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      box-shadow: 0 14px 30px rgba(15, 23, 42, 0.75);
+      margin-bottom: 18px;
+    }
+
+    .card h3 {
+      font-size: 1rem;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card h3 span.dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 12px rgba(250, 204, 21, 0.6);
+    }
+
+    .card p,
+    .card li {
+      font-size: 0.9rem;
+      color: #e5e7eb;
+    }
+
+    .card p {
+      margin-bottom: 6px;
+    }
+
+    .card ul {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .card ul li::before {
+      content: "•";
+      color: var(--accent);
+      margin-right: 6px;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
+
+    .meta-pill {
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      background: rgba(15, 23, 42, 0.92);
+    }
+
+    .gallery {
+      margin-top: 4px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+    }
+
+    .gallery figure {
+      margin: 0;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(15, 23, 42, 0.7);
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .gallery img {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.18s ease;
+    }
+
+    .gallery figure:hover img {
+      transform: scale(1.04);
+    }
+
+    .gallery figcaption {
+      font-size: 0.78rem;
+      padding: 6px 9px 7px;
+      color: #e5e7eb;
+    }
+
+    .contact-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr);
+      gap: 18px;
+      margin-top: 6px;
+      font-size: 0.9rem;
+    }
+
+    .contact-block h4 {
+      font-size: 0.92rem;
+      margin-bottom: 4px;
+      color: #f9fafb;
+    }
+
+    .contact-block p {
+      margin-bottom: 4px;
+      color: #e5e7eb;
+    }
+
+    .contact-block a {
+      color: #e5e7eb;
+      text-decoration: none;
+    }
+
+    .contact-block a:hover {
+      text-decoration: underline;
+      color: #fbbf24;
+    }
+
+    /* Tee-Time Tabelle */
+    .schedule-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 0.88rem;
+    }
+
+    .schedule-table th,
+    .schedule-table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.4);
+    }
+
+    .schedule-table th {
+      text-align: left;
+      color: #e5e7eb;
+      background: rgba(15, 23, 42, 0.9);
+      font-weight: 600;
+    }
+
+    .schedule-table tr:nth-child(even) td {
+      background: rgba(15, 23, 42, 0.6);
+    }
+
+    .room-list {
+      list-style: none;
+      padding-left: 0;
+      margin-top: 6px;
+    }
+
+    .room-list li {
+      margin-bottom: 4px;
+      font-size: 0.9rem;
+    }
+
+    .room-list li::before {
+      content: "•";
+      color: var(--accent);
+      margin-right: 6px;
+    }
+
+    footer {
+      padding: 14px 6vw 24px;
+      text-align: center;
+      font-size: 0.78rem;
+      color: #9ca3af;
+      border-top: 1px solid rgba(148, 163, 184, 0.35);
+      background: radial-gradient(circle at top, rgba(15, 23, 42, 0.94), rgba(2, 6, 23, 1));
+      margin-top: 10px;
+    }
+
+    footer a {
+      color: #e5e7eb;
+    }
+
+    footer a:hover {
+      color: #facc15;
+    }
+
+    @media (max-width: 880px) {
+      .hero {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .hero-media-card {
+        order: -1;
+      }
+
+      .content-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .contact-card {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    @media (max-width: 600px) {
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+      }
+
+      main {
+        padding-top: 18px;
+      }
+
+      .hero-text h2 {
+        font-size: 1.7rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>
+        <span class="logo-dot"></span>
+        Lighthouse Golf &amp; Spa Hotel
+      </h1>
+      <div class="tagline">Golfwoche 27.03. – 03.04.2026 · Balchik · Bulgarien</div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-text">
+          <h2>
+            Fünf Sterne am
+            <span class="highlight">Schwarzen Meer</span>
+          </h2>
+          <p>
+            Das Lighthouse Golf &amp; Spa Hotel liegt oberhalb der Küste bei Balchik und ist Teil der
+            Cape Kaliakra Signature Golf Coast mit drei Championship-Plätzen in unmittelbarer Nähe.
+          </p>
+
+          <div class="hero-badges">
+            <span class="badge gold">5★ Golf &amp; Spa Resort</span>
+            <span class="badge">European Tour Destinations</span>
+            <span class="badge green">Unsere Verpflegung: Premium All Inclusive</span>
+          </div>
+
+          <p>
+            Unsere Gruppe ist vom <strong>27.03. – 03.04.2026</strong> im Lighthouse Golf &amp; Spa Hotel
+            untergebracht – Doppel- und Einzelzimmer mit Golfplatzblick und <strong>Premium All Inclusive</strong>.
+          </p>
+
+          <div class="cta-row">
+            <a class="btn btn-primary" href="https://lighthousegolfresort.com/" target="_blank" rel="noopener">
+              <span class="icon">⛳</span>
+              Offizielle Website öffnen
+            </a>
+            <a
+              class="btn"
+              href="https://www.google.com/maps/place/Lighthouse+Golf+%26+Spa+Resort/@43.4139,28.2048,15z"
+              target="_blank"
+              rel="noopener"
+            >
+              <span class="icon">📍</span>
+              Lage in Google&nbsp;Maps
+            </a>
+          </div>
+        </div>
+
+        <div class="hero-media-card">
+          <div class="hero-main-image">
+            <img
+              src="https://lighthousegolfresort.com/wp-content/uploads/poolhotel-1-2560x1440.jpg"
+              alt="Außenansicht des Lighthouse Golf & Spa Hotels mit Poolbereich"
+            />
+          </div>
+          <div class="hero-caption">
+            <div>
+              <strong>Lighthouse Golf &amp; Spa Hotel</strong>
+              <span class="sub">· Pool, Terrassen &amp; Blick über den Golfplatz</span>
+            </div>
+            <span class="tag">Balchik · Bulgarien</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="content-grid">
+        <article class="card">
+          <h3><span class="dot"></span> Zimmer &amp; Ausstattung (unsere Buchung)</h3>
+          <p>
+            Wir wohnen im <strong>5-Sterne-Hotel Lighthouse Golf &amp; Spa</strong> in Doppel- bzw. Einzelzimmern
+            mit Blick auf den Golfplatz, alle mit <strong>Premium All Inclusive</strong>.
+          </p>
+          <ul>
+            <li>Moderne Doppel- &amp; Einzelzimmer mit Golfplatzblick (laut Buchung)</li>
+            <li>Viele Zimmer mit Balkon oder Terrasse (Meerblick-Upgrade je nach Verfügbarkeit beim Check-in)</li>
+            <li>Klimaanlage, Safe, TV, WLAN, Minibar</li>
+            <li>Großzügige Badezimmer mit Dusche oder Badewanne</li>
+            <li>Zimmerreinigung und Handtuchservice durch das Hotel</li>
+          </ul>
+
+          <p><strong>Premium All Inclusive – für unsere Gruppe inkludiert:</strong></p>
+          <ul>
+            <li>Frühstücks-, Mittags- &amp; Abendbuffet im Hauptrestaurant</li>
+            <li>Snacks &amp; kleine Speisen zwischendurch (laut Hotelkonzept)</li>
+            <li>Große Auswahl an alkoholischen &amp; alkoholfreien Getränken an den Hotelbars</li>
+            <li>Kaffee, Tee, Softdrinks, Bier, Wein, ausgewählte Spirituosen laut AI-Liste</li>
+          </ul>
+
+          <div class="meta-row">
+            <span class="meta-pill">Kategorie: 5★</span>
+            <span class="meta-pill">Verpflegung: Premium All Inclusive</span>
+            <span class="meta-pill">Doppel- &amp; Einzelzimmer</span>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3><span class="dot"></span> Golf &amp; Umgebung</h3>
+          <p>
+            Herzstück des Resorts ist der von Ian Woosnam designte Lighthouse Golf Course.
+            In einem Radius von wenigen Kilometern liegen außerdem die Plätze BlackSeaRama und Thracian Cliffs – damit
+            gehört die Region zu den spannendsten Golfdestinationen Europas.
+          </p>
+          <ul>
+            <li>Lighthouse Golf Course · Par 71 · Küsten-Resortkurs (Unlimited Golf im Paket)</li>
+            <li>1 Runde BlackSeaRama inkl. Rangebälle &amp; Pulltrolley</li>
+            <li>1 Runde Thracian Cliffs inkl. ½ Buggy (10 Buggys für 18 Gäste reserviert)</li>
+            <li>Clubhaus, Pro-Shop, Übungsanlagen &amp; Golf Academy</li>
+          </ul>
+
+          <div class="gallery">
+            <figure>
+              <img
+                src="https://lighthousegolfresort.com/wp-content/uploads/rectangle-e1729940364846.png"
+                alt="Luftbild des Lighthouse Golf & Spa Resorts mit Poollandschaft und Meer"
+              />
+              <figcaption>Resort mit Poollandschaft &amp; Blick über den Platz</figcaption>
+            </figure>
+
+            <figure>
+              <img
+                src="https://lighthousegolfresort.com/wp-content/uploads/lighthouse-4th-1-2560x1440.jpg"
+                alt="Golfgrün mit Blick über den Lighthouse Golf Course"
+              />
+              <figcaption>Lighthouse Golf Course – Grün &amp; Wasser</figcaption>
+            </figure>
+
+            <figure>
+              <img
+                src="https://lighthousegolfresort.com/wp-content/uploads/lighthouse-6-1-350x220.jpg"
+                alt="Weite Fairways mit Meer im Hintergrund"
+              />
+              <figcaption>Weite Fairways an der Küste</figcaption>
+            </figure>
+
+            <figure>
+              <img
+                src="https://lighthousegolfresort.com/wp-content/uploads/image-on-scrol-2560x1440.jpg"
+                alt="Heros Beach unterhalb der Steilküste am Schwarzen Meer"
+              />
+              <figcaption>Heros Beach unterhalb der Steilküste</figcaption>
+            </figure>
+          </div>
+        </article>
+      </section>
+
+      <section class="card">
+        <h3><span class="dot"></span> Tee Times unserer Gruppe</h3>
+        <p>Die Startzeiten laut aktueller Reisebestätigung:</p>
+        <table class="schedule-table">
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Platz</th>
+              <th>Startzeit</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>29.03.2026</td>
+              <td>Lighthouse Golf Course</td>
+              <td>11:20 Uhr</td>
+              <td>18 Gäste</td>
+            </tr>
+            <tr>
+              <td>30.03.2026</td>
+              <td>Lighthouse Golf Course</td>
+              <td>10:30 Uhr</td>
+              <td>18 Gäste</td>
+            </tr>
+            <tr>
+              <td>31.03.2026</td>
+              <td>BlackSeaRama Golf Course</td>
+              <td>11:00 Uhr</td>
+              <td>18 Gäste · inkl. 30 Rangebälle &amp; Pulltrolley</td>
+            </tr>
+            <tr>
+              <td>01.04.2026</td>
+              <td>Thracian Cliffs Golf Course</td>
+              <td>10:30 Uhr</td>
+              <td>18 Gäste · 10 Buggys (½ Buggy pro Person)</td>
+            </tr>
+            <tr>
+              <td>02.04.2026</td>
+              <td>Lighthouse Golf Course</td>
+              <td>10:30 Uhr</td>
+              <td>18 Gäste</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h3><span class="dot"></span> Zimmerübersicht – wer mit wem schläft</h3>
+        <p>Zimmerbelegung laut Peter / Reisebestätigung:</p>
+        <ul class="room-list">
+          <li><strong>DZ:</strong> Peter Beer &amp; Karin Spöck</li>
+          <li><strong>DZ:</strong> Elisabeth &amp; Ferdinand Schweiger</li>
+          <li><strong>DZ:</strong> Katharina &amp; Manfred Spendling</li>
+          <li><strong>DZ:</strong> Berit Schenk &amp; Paul Kampitsch</li>
+          <li><strong>DZ:</strong> Doris &amp; Martin Handler</li>
+          <li><strong>DZ:</strong> Monika &amp; Daniel Bogataj</li>
+          <li><strong>DZ:</strong> Sabine &amp; Ernst Kremser</li>
+          <li><strong>EZ:</strong> Susanne Ganzbiller</li>
+          <li><strong>EZ:</strong> Eduard Herling</li>
+          <li><strong>EZ:</strong> Sabine Dockner</li>
+        </ul>
+        <p style="margin-top:8px;font-size:0.85rem;color:#9ca3af;">
+          Hinweis: Die An- und Abreisedaten der einzelnen Zimmer variieren leicht
+          (27.03.–03.04. bzw. 28.03.–04.04.), sind aber im Gesamtpaket mit 7 Nächten Premium All Inclusive
+          abgedeckt.
+        </p>
+      </section>
+
+      <section class="card">
+        <h3><span class="dot"></span> Kontakt · Lighthouse Golf &amp; Spa Resort</h3>
+        <div class="contact-card">
+          <div class="contact-block">
+            <h4>Adresse</h4>
+            <p>
+              Lighthouse Golf &amp; Spa Resort<br />
+              9600 Balchik Municipality<br />
+              Bulgarien
+            </p>
+            <p>
+              <a
+                href="https://www.google.com/maps/place/Lighthouse+Golf+%26+Spa+Resort/@43.4139,28.2048,15z"
+                target="_blank"
+                rel="noopener"
+              >
+                📍 Auf Google&nbsp;Maps anzeigen
+              </a>
+            </p>
+          </div>
+
+          <div class="contact-block">
+            <h4>Telefon &amp; E-Mail</h4>
+            <p>
+              Call Center: <a href="tel:+35952401401">+359 52 401 401</a><br />
+              Rezeption: <a href="tel:+35952401400">+359 52 401 400</a>
+            </p>
+            <p>
+              Hotel-Reservierungen:<br />
+              <a href="tel:+359882060587">+359 882 060 587</a> ·
+              <a href="tel:+359882060586">+359 882 060 586</a><br />
+              <a href="tel:+359885324404">+359 885 324 404</a>
+            </p>
+            <p>
+              Allgemeine Anfragen:
+              <a href="mailto:info@lighthousegolfresort.com">info@lighthousegolfresort.com</a><br />
+              Reservierungen:
+              <a href="mailto:reservations@lighthousegolfresort.com">reservations@lighthousegolfresort.com</a>
+            </p>
+            <p>
+              Website:
+              <a href="https://lighthousegolfresort.com/" target="_blank" rel="noopener">
+                https://lighthousegolfresort.com/
+              </a>
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      Inoffizielle Info-Seite für unsere Golfgruppe 2026.
+      Offizielle Informationen &amp; Buchungen direkt über
+      <a href="https://lighthousegolfresort.com/" target="_blank" rel="noopener">Lighthouse Golf &amp; Spa Resort</a>.
+    </footer>
+  </div>
+</body>
+</html>
