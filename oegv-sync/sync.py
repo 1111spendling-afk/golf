@@ -97,6 +97,7 @@ def get_friends() -> list[dict[str, str]]:
 def post_to_mga(players: list[dict[str, str]]) -> dict:
     target = env("MGA_SYNC_URL")
     token = env("MGA_SYNC_TOKEN")
+    print(f"MGA-Zieladresse: {target}")
     request = urllib.request.Request(
         target,
         data=json.dumps({"players": players}).encode("utf-8"),
@@ -107,7 +108,10 @@ def post_to_mga(players: list[dict[str, str]]) -> dict:
         with urllib.request.urlopen(request, timeout=60) as response:
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as error:
-        raise RuntimeError(f"MGA-Site hat den Abgleich abgelehnt ({error.code}).") from error
+        detail = error.read().decode("utf-8", errors="replace").strip()
+        raise RuntimeError(
+            f"MGA-Site hat den Abgleich abgelehnt ({error.code}): {detail[:500]}"
+        ) from error
 
 
 if __name__ == "__main__":
