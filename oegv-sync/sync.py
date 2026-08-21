@@ -97,11 +97,16 @@ def get_friends() -> list[dict[str, str]]:
 def post_to_mga(players: list[dict[str, str]]) -> dict:
     target = env("MGA_SYNC_URL")
     token = env("MGA_SYNC_TOKEN")
+    sites_bypass_token = env("MGA_SITE_BYPASS_TOKEN")
     print(f"MGA-Zieladresse: {target}")
     request = urllib.request.Request(
         target,
         data=json.dumps({"players": players}).encode("utf-8"),
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}",
+            "OAI-Sites-Authorization": f"Bearer {sites_bypass_token}",
+        },
         method="POST",
     )
     try:
