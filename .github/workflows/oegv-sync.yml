@@ -3,8 +3,12 @@ name: MGA ÖGV-Friendslist-Abgleich
 on:
   workflow_dispatch:
   schedule:
-    # Österreich: Sommerzeit 07:30 / 19:30 UTC, Winterzeit 08:30 / 20:30 UTC
-    - cron: "30 7,8,19,20 * * *"
+    # Sommerzeit: 09:30 / 21:30 Österreich
+    - cron: "30 7,19 * * *"
+    # Winterzeit: 09:30 / 21:30 Österreich
+    - cron: "30 8,20 * * *"
+    # Einmaliger Test: 10:40 Österreichische Sommerzeit – danach entfernen
+    - cron: "40 8 * * *"
 
 permissions:
   contents: read
@@ -23,17 +27,35 @@ jobs:
         id: local_time
         env:
           EVENT_NAME: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
         run: |
+          local_time="$(TZ=Europe/Vienna date +%H:%M)"
+          local_offset="$(TZ=Europe/Vienna date +%z)"
+          echo "Österreichische Zeit: $local_time (UTC$local_offset)"
+          echo "GitHub-Auslöser: $EVENT_NAME | Zeitplan: $SCHEDULE"
+
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "Manueller Lauf: Abgleich wird ausgeführt."
             echo "run_sync=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          local_time="$(TZ=Europe/Vienna date +%H:%M)"
-          if [ "$local_time" = "09:30" ] || [ "$local_time" = "21:30" ]; then
-            echo "run_sync=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run_sync=false" >> "$GITHUB_OUTPUT"
-          fi
+
+          case "$SCHEDULE" in
+            "30 7,19 * * *")
+              [ "$local_offset" = "+0200" ] && echo "run_sync=true" >> "$GITHUB_OUTPUT" || echo "run_sync=false" >> "$GITHUB_OUTPUT"
+              ;;
+            "30 8,20 * * *")
+              [ "$local_offset" = "+0100" ] && echo "run_sync=true" >> "$GITHUB_OUTPUT" || echo "run_sync=false" >> "$GITHUB_OUTPUT"
+              ;;
+            "40 8 * * *")
+              echo "Testlauf: Abgleich wird ausgeführt."
+              echo "run_sync=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Kein vorgesehener Abgleichtermin."
+              echo "run_sync=false" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
 
       - name: Abgleichcode laden
         if: steps.local_time.outputs.run_sync == 'true'
