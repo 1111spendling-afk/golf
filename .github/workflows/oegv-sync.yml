@@ -1,0 +1,41 @@
+name: MGA ÖGV-Friendslist-Abgleich
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mga-oegv-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Friendslist mit MGA Masterliste abgleichen
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Abgleichcode laden
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Browser-Automatisierung installieren
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r oegv-sync/requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: ÖGV Friendslist abgleichen
+        env:
+          OEGV_USER: ${{ secrets.OEGV_USER }}
+          OEGV_PASSWORD: ${{ secrets.OEGV_PASSWORD }}
+          MGA_SYNC_URL: ${{ secrets.MGA_SYNC_URL }}
+          MGA_SYNC_TOKEN: ${{ secrets.MGA_SYNC_TOKEN }}
+        run: python oegv-sync/sync.py
