@@ -2,13 +2,20 @@ name: MGA ÖGV-Friendslist-Abgleich
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "Vorgang"
+        required: true
+        default: compare
+        type: choice
+        options:
+          - compare
+          - add_missing
+          - whi
   schedule:
-    # Sommerzeit: 09:30 / 21:30 Österreich
+    # Der automatische Cron bleibt ausschließlich der offizielle WHI-Abgleich.
     - cron: "30 7,19 * * *"
-    # Winterzeit: 09:30 / 21:30 Österreich
     - cron: "30 8,20 * * *"
-    # Einmaliger Test: 10:40 Österreichische Sommerzeit – danach entfernen
-    - cron: "40 8 * * *"
 
 permissions:
   contents: read
@@ -19,15 +26,16 @@ concurrency:
 
 jobs:
   sync:
-    name: Friendslist mit MGA Masterliste abgleichen
+    name: MGA ÖGV Friendslist
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
-      - name: Auf österreichische Zeit prüfen
+      - name: Österreichische Zeit und Vorgang bestimmen
         id: local_time
         env:
           EVENT_NAME: ${{ github.event_name }}
           SCHEDULE: ${{ github.event.schedule }}
+          DISPATCH_MODE: ${{ inputs.mode }}
         run: |
           local_time="$(TZ=Europe/Vienna date +%H:%M)"
           local_offset="$(TZ=Europe/Vienna date +%z)"
@@ -35,27 +43,24 @@ jobs:
           echo "GitHub-Auslöser: $EVENT_NAME | Zeitplan: $SCHEDULE"
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "Manueller Lauf: Abgleich wird ausgeführt."
+            echo "Manueller Vorgang: $DISPATCH_MODE"
             echo "run_sync=true" >> "$GITHUB_OUTPUT"
+            echo "sync_mode=${DISPATCH_MODE:-compare}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           case "$SCHEDULE" in
             "30 7,19 * * *")
-              [ "$local_offset" = "+0200" ] && echo "run_sync=true" >> "$GITHUB_OUTPUT" || echo "run_sync=false" >> "$GITHUB_OUTPUT"
+              if [ "$local_offset" = "+0200" ]; then echo "run_sync=true" >> "$GITHUB_OUTPUT"; else echo "run_sync=false" >> "$GITHUB_OUTPUT"; fi
               ;;
             "30 8,20 * * *")
-              [ "$local_offset" = "+0100" ] && echo "run_sync=true" >> "$GITHUB_OUTPUT" || echo "run_sync=false" >> "$GITHUB_OUTPUT"
-              ;;
-            "40 8 * * *")
-              echo "Testlauf: Abgleich wird ausgeführt."
-              echo "run_sync=true" >> "$GITHUB_OUTPUT"
+              if [ "$local_offset" = "+0100" ]; then echo "run_sync=true" >> "$GITHUB_OUTPUT"; else echo "run_sync=false" >> "$GITHUB_OUTPUT"; fi
               ;;
             *)
-              echo "Kein vorgesehener Abgleichtermin."
               echo "run_sync=false" >> "$GITHUB_OUTPUT"
               ;;
           esac
+          echo "sync_mode=whi" >> "$GITHUB_OUTPUT"
 
       - name: Abgleichcode laden
         if: steps.local_time.outputs.run_sync == 'true'
@@ -74,11 +79,12 @@ jobs:
           pip install -r oegv-sync/requirements.txt
           python -m playwright install --with-deps chromium
 
-      - name: ÖGV Friendslist abgleichen
+      - name: ÖGV Friendslist Vorgang ausführen
         if: steps.local_time.outputs.run_sync == 'true'
         env:
           OEGV_USER: ${{ secrets.OEGV_USER }}
           OEGV_PASSWORD: ${{ secrets.OEGV_PASSWORD }}
+          OEGV_MODE: ${{ steps.local_time.outputs.sync_mode }}
           MGA_SYNC_URL: https://mga-turnieranmeldung.bonso1.chatgpt.site/api/admin/masterliste/oegv-sync
           MGA_SYNC_TOKEN: ${{ secrets.MGA_SYNC_TOKEN }}
           MGA_SITE_BYPASS_TOKEN: ${{ secrets.MGA_SITE_BYPASS_TOKEN }}
