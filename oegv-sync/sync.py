@@ -44,6 +44,29 @@ def fill_if_present(page, selectors: list[str], value: str) -> bool:
     return False
 
 
+def normalized(value: str) -> str:
+    return re.sub(r"\s+", " ", value.casefold().strip())
+
+
+def login_page(playwright):
+    user, password = env("OEGV_USER"), env("OEGV_PASSWORD")
+    browser = playwright.chromium.launch(headless=True)
+    page = browser.new_page(viewport={"width": 1400, "height": 900})
+    page.goto(FRIENDS_URL, wait_until="domcontentloaded")
+    click_if_present(page, ["button:has-text('Zustimmen & fortfahren')", "button:has-text('Alle akzeptieren')", "button:has-text('Akzeptieren')"])
+    user_ok = fill_if_present(page, ["input[name='username']", "input[name='user']", "input[name='email']", "input[type='email']", "input[type='text']"], user)
+    password_ok = fill_if_present(page, ["input[name='password']", "input[name='pass']", "input[type='password']"], password)
+    if not (user_ok and password_ok):
+        browser.close()
+        raise RuntimeError("ÖGV-Loginfelder wurden nicht gefunden.")
+    if not click_if_present(page, ["button[type='submit']", "input[type='submit']", "button:has-text('Login')", "button:has-text('Einloggen')", "button:has-text('Anmelden')"]):
+        page.keyboard.press("Enter")
+    page.wait_for_timeout(4_000)
+    page.goto(FRIENDS_URL, wait_until="domcontentloaded")
+    page.wait_for_timeout(2_000)
+    return browser, page
+
+
 def parse_friends(text: str) -> list[dict[str, str]]:
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     start = next((index + 1 for index, line in enumerate(lines)
@@ -71,21 +94,8 @@ def parse_friends(text: str) -> list[dict[str, str]]:
 
 
 def get_friends() -> list[dict[str, str]]:
-    user, password = env("OEGV_USER"), env("OEGV_PASSWORD")
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
-        page = browser.new_page(viewport={"width": 1400, "height": 900})
-        page.goto(FRIENDS_URL, wait_until="domcontentloaded")
-        click_if_present(page, ["button:has-text('Zustimmen & fortfahren')", "button:has-text('Alle akzeptieren')", "button:has-text('Akzeptieren')"])
-        user_ok = fill_if_present(page, ["input[name='username']", "input[name='user']", "input[name='email']", "input[type='email']", "input[type='text']"], user)
-        password_ok = fill_if_present(page, ["input[name='password']", "input[name='pass']", "input[type='password']"], password)
-        if not (user_ok and password_ok):
-            raise RuntimeError("ÖGV-Loginfelder wurden nicht gefunden.")
-        if not click_if_present(page, ["button[type='submit']", "input[type='submit']", "button:has-text('Login')", "button:has-text('Einloggen')", "button:has-text('Anmelden')"]):
-            page.keyboard.press("Enter")
-        page.wait_for_timeout(4_000)
-        page.goto(FRIENDS_URL, wait_until="domcontentloaded")
-        page.wait_for_timeout(2_000)
+        browser, page = login_page(playwright)
         for _ in range(40):
             page.mouse.wheel(0, 2_500)
             page.wait_for_timeout(250)
@@ -94,14 +104,64 @@ def get_friends() -> list[dict[str, str]]:
         return result
 
 
-def post_to_mga(players: list[dict[str, str]]) -> dict:
+def add_missing_players(players: list[dict[str, str]]) -> list[dict[str, str]]:
+    added: list[dict[str, str]] = []
+    if not players:
+        return added
+    with sync_playwright() as playwright:
+        browser, page = login_page(playwright)
+        try:
+            for player in players:
+                first_name = str(player.get("firstName", "")).strip()
+                last_name = str(player.get("lastName", "")).strip()
+                club = str(player.get("homeClub", "")).strip()
+                if not first_name or not last_name or not club:
+                    continue
+                if not click_if_present(page, ["a:has-text('Freunde hinzufügen')", "button:has-text('Freunde hinzufügen')"]):
+                    raise RuntimeError("ÖGV-Schaltfläche 'Freunde hinzufügen' wurde nicht gefunden.")
+                if not fill_if_present(page, ["input[name*='nach' i]", "input[placeholder*='Nachname' i]", "input[aria-label*='Nachname' i]"], last_name[:20]):
+                    raise RuntimeError(f"ÖGV-Nachnamefeld für {first_name} {last_name} wurde nicht gefunden.")
+                if not fill_if_present(page, ["input[name*='vor' i]", "input[placeholder*='Vorname' i]", "input[aria-label*='Vorname' i]"], first_name[:20]):
+                    raise RuntimeError(f"ÖGV-Vornamefeld für {first_name} {last_name} wurde nicht gefunden.")
+                if not click_if_present(page, ["button:has-text('Suchen')", "input[value='Suchen']"]):
+                    raise RuntimeError(f"ÖGV-Suche für {first_name} {last_name} konnte nicht gestartet werden.")
+                page.wait_for_timeout(1_500)
+                wanted_name = normalized(f"{last_name} {first_name}")
+                wanted_club = normalized(club)
+                matches = []
+                for button in page.locator("button, input[type='submit'], a").all():
+                    try:
+                        label = normalized(button.inner_text() or button.get_attribute("value") or "")
+                    except Exception:
+                        continue
+                    if label != "hinzufügen":
+                        continue
+                    container = button
+                    for _ in range(5):
+                        container = container.locator("..")
+                    text = normalized(container.inner_text())
+                    if wanted_name in text and wanted_club in text:
+                        matches.append(button)
+                if len(matches) != 1:
+                    print(f"Nicht eindeutig: {first_name} {last_name} – {club} ({len(matches)} Treffer)")
+                    continue
+                matches[0].click()
+                page.wait_for_timeout(1_000)
+                added.append({"name": f"{last_name} {first_name}", "club": club})
+                page.goto(FRIENDS_URL, wait_until="domcontentloaded")
+                page.wait_for_timeout(700)
+        finally:
+            browser.close()
+    return added
+
+
+def post_to_mga(players: list[dict[str, str]], mode: str) -> dict:
     target = env("MGA_SYNC_URL")
     token = env("MGA_SYNC_TOKEN")
     sites_bypass_token = env("MGA_SITE_BYPASS_TOKEN")
-    print(f"MGA-Zieladresse: {target}")
     request = urllib.request.Request(
         target,
-        data=json.dumps({"players": players}).encode("utf-8"),
+        data=json.dumps({"players": players, "mode": mode}).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {token}",
@@ -113,15 +173,22 @@ def post_to_mga(players: list[dict[str, str]]) -> dict:
         with urllib.request.urlopen(request, timeout=60) as response:
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as error:
-        detail = error.read().decode("utf-8", errors="replace").strip()
-        raise RuntimeError(
-            f"MGA-Site hat den Abgleich abgelehnt ({error.code}): {detail[:500]}"
-        ) from error
+        raise RuntimeError(f"MGA-Site hat den Abgleich abgelehnt ({error.code}).") from error
 
 
 if __name__ == "__main__":
     try:
-        result = post_to_mga(get_friends())
+        mode = os.environ.get("OEGV_MODE", "whi").strip().lower()
+        if mode not in {"compare", "add_missing", "whi"}:
+            raise RuntimeError(f"Unbekannter ÖGV-Vorgang: {mode}")
+        friends = get_friends()
+        result = post_to_mga(friends, mode)
+        if mode == "add_missing":
+            added = add_missing_players(result.get("missingPlayers", []))
+            refreshed = get_friends()
+            result = post_to_mga(refreshed, "compare")
+            result["addedCount"] = len(added)
+            result["addedPlayers"] = added
         print(json.dumps(result, ensure_ascii=False))
     except Exception as error:
         print(str(error), file=sys.stderr)
