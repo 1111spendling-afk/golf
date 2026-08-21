@@ -179,12 +179,15 @@ def post_to_mga(players: list[dict[str, str]], mode: str) -> dict:
 if __name__ == "__main__":
     try:
         mode = os.environ.get("OEGV_MODE", "whi").strip().lower()
-        if mode not in {"compare", "add_missing", "whi"}:
+        if mode not in {"compare", "add_one", "add_missing", "whi"}:
             raise RuntimeError(f"Unbekannter ÖGV-Vorgang: {mode}")
         friends = get_friends()
         result = post_to_mga(friends, mode)
-        if mode == "add_missing":
-            added = add_missing_players(result.get("missingPlayers", []))
+        if mode in {"add_one", "add_missing"}:
+            candidates = result.get("missingPlayers", [])
+            if mode == "add_one":
+                candidates = candidates[:1]
+            added = add_missing_players(candidates)
             refreshed = get_friends()
             result = post_to_mga(refreshed, "compare")
             result["addedCount"] = len(added)
