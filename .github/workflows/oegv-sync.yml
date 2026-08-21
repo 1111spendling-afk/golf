@@ -3,7 +3,8 @@ name: MGA ÖGV-Friendslist-Abgleich
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 4 * * *"
+    # Österreich: Sommerzeit 07:30 / 19:30 UTC, Winterzeit 08:30 / 20:30 UTC
+    - cron: "30 7,8,19,20 * * *"
 
 permissions:
   contents: read
@@ -18,21 +19,41 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
+      - name: Auf österreichische Zeit prüfen
+        id: local_time
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "run_sync=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          local_time="$(TZ=Europe/Vienna date +%H:%M)"
+          if [ "$local_time" = "09:30" ] || [ "$local_time" = "21:30" ]; then
+            echo "run_sync=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_sync=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Abgleichcode laden
+        if: steps.local_time.outputs.run_sync == 'true'
         uses: actions/checkout@v4
 
       - name: Python einrichten
+        if: steps.local_time.outputs.run_sync == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Browser-Automatisierung installieren
+        if: steps.local_time.outputs.run_sync == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install -r oegv-sync/requirements.txt
           python -m playwright install --with-deps chromium
 
       - name: ÖGV Friendslist abgleichen
+        if: steps.local_time.outputs.run_sync == 'true'
         env:
           OEGV_USER: ${{ secrets.OEGV_USER }}
           OEGV_PASSWORD: ${{ secrets.OEGV_PASSWORD }}
