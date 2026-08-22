@@ -186,13 +186,13 @@ def add_missing_players(players: list[dict[str, str]]) -> list[dict[str, str]]:
     return added
 
 
-def post_to_mga(players: list[dict[str, str]], mode: str) -> dict:
+def post_to_mga(players: list[dict[str, str]], mode: str, added_players: list[dict[str, str]] | None = None) -> dict:
     target = env("MGA_SYNC_URL")
     token = env("MGA_SYNC_TOKEN")
     sites_bypass_token = env("MGA_SITE_BYPASS_TOKEN")
     request = urllib.request.Request(
         target,
-        data=json.dumps({"players": players, "mode": mode}).encode("utf-8"),
+        data=json.dumps({"players": players, "mode": mode, "addedPlayers": added_players or []}).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {token}",
@@ -210,14 +210,17 @@ def post_to_mga(players: list[dict[str, str]], mode: str) -> dict:
 if __name__ == "__main__":
     try:
         mode = os.environ.get("OEGV_MODE", "whi").strip().lower()
-        if mode not in {"compare", "add_missing", "whi"}:
+        if mode not in {"compare", "add_one", "add_missing", "whi"}:
             raise RuntimeError(f"Unbekannter ÖGV-Vorgang: {mode}")
         friends = get_friends()
         result = post_to_mga(friends, mode)
-        if mode == "add_missing":
-            added = add_missing_players(result.get("missingPlayers", []))
+        if mode in {"add_one", "add_missing"}:
+            candidates = result.get("missingPlayers", [])
+            if mode == "add_one":
+                candidates = candidates[:1]
+            added = add_missing_players(candidates)
             refreshed = get_friends()
-            result = post_to_mga(refreshed, "compare")
+            result = post_to_mga(refreshed, "compare", added)
             result["addedCount"] = len(added)
             result["addedPlayers"] = added
         print(json.dumps(result, ensure_ascii=False))
