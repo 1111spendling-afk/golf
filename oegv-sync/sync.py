@@ -67,9 +67,32 @@ def normalized(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", plain.casefold()).strip()
 
 
+def edit_distance(left: str, right: str) -> int:
+    previous = list(range(len(right) + 1))
+    for row_index, left_char in enumerate(left, start=1):
+        current = [row_index]
+        for column_index, right_char in enumerate(right, start=1):
+            current.append(
+                min(
+                    current[-1] + 1,
+                    previous[column_index] + 1,
+                    previous[column_index - 1] + (left_char != right_char),
+                )
+            )
+        previous = current
+    return previous[-1]
+
+
 def name_matches(text: str, first_name: str, last_name: str) -> bool:
     haystack = normalized(text)
-    return normalized(first_name) in haystack and normalized(last_name) in haystack
+    first = normalized(first_name)
+    last = normalized(last_name)
+    if first in haystack and last in haystack:
+        return True
+    if last not in haystack:
+        return False
+    remaining = haystack.replace(last, " ", 1).strip()
+    return edit_distance(remaining, first) <= 1
 
 
 
