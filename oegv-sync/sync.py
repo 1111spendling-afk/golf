@@ -8,6 +8,7 @@ import json
 import os
 import re
 import sys
+import unicodedata
 import urllib.error
 import urllib.request
 from playwright.sync_api import sync_playwright
@@ -45,7 +46,50 @@ def fill_if_present(page, selectors: list[str], value: str) -> bool:
 
 
 def normalized(value: str) -> str:
-    return re.sub(r"\s+", " ", value.casefold().strip())
+    plain = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]+", " ", plain.casefold()).strip()
+
+
+def name_matches(text: str, first_name: str, last_name: str) -> bool:
+    haystack = normalized(text)
+    return normalized(first_name) in haystack and normalized(last_name) in haystack
+
+
+def find_result_button(page, first_name: str, last_name: str, club: str):
+    """Find exactly one add button whose smallest useful result container matches."""
+    wanted_club = normalized(club)
+    matches = []
+    buttons = page.locator("button, input[type='submit'], a")
+    for index in range(buttons.count()):
+        button = buttons.nth(index)
+        try:
+            label = normalized(button.inner_text() or button.get_attribute("value") or "")
+        except Exception:
+            continue
+        if label != "hinzufügen":
+            continue
+        container = button
+        for _ in range(9):
+            container = container.locator("..")
+            try:
+                text = container.inner_text(timeout=500)
+            except Exception:
+                continue
+            if name_matches(text, first_name, last_name) and wanted_club in normalized(text):
+                matches.append(button)
+                break
+    return matches
+
+
+def verify_friend(page, first_name: str, last_name: str, club: str) -> bool:
+    page.goto(FRIENDS_URL, wait_until="domcontentloaded")
+    page.wait_for_timeout(1_500)
+    for _ in range(40):
+        page.mouse.wheel(0, 2_500)
+        page.wait_for_timeout(150)
+    friends = parse_friends(page.evaluate("document.body.innerText"))
+    wanted_club = normalized(club)
+    return any(name_matches(item["name"], first_name, last_name) and normalized(item["club"]) == wanted_club for item in friends)
 
 
 def login_page(playwright):
@@ -126,42 +170,29 @@ def add_missing_players(players: list[dict[str, str]]) -> list[dict[str, str]]:
                 if not click_if_present(page, ["button:has-text('Suchen')", "input[value='Suchen']"]):
                     raise RuntimeError(f"ÖGV-Suche für {first_name} {last_name} konnte nicht gestartet werden.")
                 page.wait_for_timeout(1_500)
-                wanted_name = normalized(f"{last_name} {first_name}")
-                wanted_club = normalized(club)
-                matches = []
-                for button in page.locator("button, input[type='submit'], a").all():
-                    try:
-                        label = normalized(button.inner_text() or button.get_attribute("value") or "")
-                    except Exception:
-                        continue
-                    if label != "hinzufügen":
-                        continue
-                    container = button
-                    for _ in range(5):
-                        container = container.locator("..")
-                    text = normalized(container.inner_text())
-                    if wanted_name in text and wanted_club in text:
-                        matches.append(button)
+                matches = find_result_button(page, first_name, last_name, club)
                 if len(matches) != 1:
                     print(f"Nicht eindeutig: {first_name} {last_name} – {club} ({len(matches)} Treffer)")
                     continue
                 matches[0].click()
-                page.wait_for_timeout(1_000)
-                added.append({"name": f"{last_name} {first_name}", "club": club})
-                page.goto(FRIENDS_URL, wait_until="domcontentloaded")
-                page.wait_for_timeout(700)
+                page.wait_for_timeout(1_500)
+                if verify_friend(page, first_name, last_name, club):
+                    added.append({"name": f"{last_name} {first_name}", "club": club})
+                    print(f"Aufgenommen und bestätigt: {last_name} {first_name} – {club}")
+                else:
+                    print(f"Nicht bestätigt: {last_name} {first_name} – {club}")
         finally:
             browser.close()
     return added
 
 
-def post_to_mga(players: list[dict[str, str]], mode: str, added_players: list[dict[str, str]] | None = None) -> dict:
+def post_to_mga(players: list[dict[str, str]], mode: str) -> dict:
     target = env("MGA_SYNC_URL")
     token = env("MGA_SYNC_TOKEN")
     sites_bypass_token = env("MGA_SITE_BYPASS_TOKEN")
     request = urllib.request.Request(
         target,
-        data=json.dumps({"players": players, "mode": mode, "addedPlayers": added_players or []}).encode("utf-8"),
+        data=json.dumps({"players": players, "mode": mode}).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {token}",
@@ -179,17 +210,14 @@ def post_to_mga(players: list[dict[str, str]], mode: str, added_players: list[di
 if __name__ == "__main__":
     try:
         mode = os.environ.get("OEGV_MODE", "whi").strip().lower()
-        if mode not in {"compare", "add_one", "add_missing", "whi"}:
+        if mode not in {"compare", "add_missing", "whi"}:
             raise RuntimeError(f"Unbekannter ÖGV-Vorgang: {mode}")
         friends = get_friends()
         result = post_to_mga(friends, mode)
-        if mode in {"add_one", "add_missing"}:
-            candidates = result.get("missingPlayers", [])
-            if mode == "add_one":
-                candidates = candidates[:1]
-            added = add_missing_players(candidates)
+        if mode == "add_missing":
+            added = add_missing_players(result.get("missingPlayers", []))
             refreshed = get_friends()
-            result = post_to_mga(refreshed, "compare", added)
+            result = post_to_mga(refreshed, "compare")
             result["addedCount"] = len(added)
             result["addedPlayers"] = added
         print(json.dumps(result, ensure_ascii=False))
