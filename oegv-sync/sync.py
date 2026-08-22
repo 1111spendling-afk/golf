@@ -32,6 +32,21 @@ def click_if_present(page, selectors: list[str]) -> bool:
             continue
     return False
 
+def wait_for_search_results(page) -> None:
+    selectors = [
+        "button:has-text('Hinzufügen')",
+        "a:has-text('Hinzufügen')",
+        "input[value='Hinzufügen']",
+    ]
+    for selector in selectors:
+        try:
+            page.locator(selector).first.wait_for(state="visible", timeout=12_000)
+            page.wait_for_timeout(500)
+            return
+        except Exception:
+            continue
+    page.wait_for_timeout(2_000)
+
 
 def fill_if_present(page, selectors: list[str], value: str) -> bool:
     for selector in selectors:
@@ -187,7 +202,7 @@ def add_missing_players(players: list[dict[str, str]]) -> list[dict[str, str]]:
                     raise RuntimeError(f"ÖGV-Vornamefeld für {first_name} {last_name} wurde nicht gefunden.")
                 if not click_if_present(page, ["button:has-text('Suchen')", "input[value='Suchen']"]):
                     raise RuntimeError(f"ÖGV-Suche für {first_name} {last_name} konnte nicht gestartet werden.")
-                page.wait_for_timeout(1_500)
+                wait_for_search_results(page)
                 matches = find_result_button(page, first_name, last_name, club)
                 if len(matches) != 1:
                     print(f"Nicht eindeutig: {first_name} {last_name} – {club} ({len(matches)} Treffer)")
