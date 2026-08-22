@@ -119,6 +119,20 @@ def find_result_button(page, first_name: str, last_name: str, club: str):
         box = button.bounding_box()
         if box:
             button_boxes.append((index, box))
+    print(f"ÖGV-Hinzufügen-Schaltflächen erkannt: {len(button_boxes)}")
+    if not button_boxes:
+        try:
+            controls = page.locator("button, input, a")
+            labels = []
+            for control_index in range(min(controls.count(), 40)):
+                control = controls.nth(control_index)
+                label = normalized(control.inner_text() or control.get_attribute("value") or control.get_attribute("aria-label") or "")
+                if label:
+                    labels.append(label[:80])
+            print(f"ÖGV-Steuerelemente auf Seite: {labels}")
+            print(f"ÖGV-Seitenrahmen: {[frame.url for frame in page.frames]}")
+        except Exception as diagnostic_error:
+            print(f"ÖGV-DOM-Diagnose fehlgeschlagen: {diagnostic_error}")
     direct_matches = []
     for index, _box in button_boxes:
         button = buttons.nth(index)
