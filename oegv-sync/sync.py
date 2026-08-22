@@ -119,7 +119,36 @@ def find_result_button(page, first_name: str, last_name: str, club: str):
         box = button.bounding_box()
         if box:
             button_boxes.append((index, box))
-    matches = []
+    direct_matches = []
+    for index, _box in button_boxes:
+        button = buttons.nth(index)
+        try:
+            ancestor_text = button.evaluate(
+                """
+                (node, wanted) => {
+                  const normalize = value => (value || "").normalize("NFKD")
+                    .replace(/[\\u0300-\\u036f]/g, "")
+                    .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+                  const name = normalize(wanted.name);
+                  const reverseName = normalize(wanted.reverseName);
+                  const club = normalize(wanted.club);
+                  let element = node.parentElement;
+                  for (let level = 0; element && level < 10; level++, element = element.parentElement) {
+                    const text = normalize(element.innerText || element.textContent || "");
+                    if (text.length <= 800 && (text.includes(name) || text.includes(reverseName)) && text.includes(club)) return text;
+                  }
+                  return "";
+                }
+                """,
+                {"name": wanted_name, "reverseName": wanted_name_reverse, "club": wanted_club},
+            )
+        except Exception:
+            continue
+        if ancestor_text:
+            direct_matches.append(button)
+    if len(direct_matches) == 1:
+        return direct_matches
+    matches = direct_matches if len(direct_matches) > 1 else []
     for row in row_candidates:
         row_center = row["y"] + row["height"] / 2
         for index, box in button_boxes:
