@@ -13,6 +13,7 @@ on:
           - add_one
           - add_missing
           - whi
+          - diagnose
   schedule:
     # Der automatische Cron bleibt ausschließlich der offizielle WHI-Abgleich.
     - cron: "30 7,19 * * *"
@@ -86,7 +87,17 @@ jobs:
           OEGV_USER: ${{ secrets.OEGV_USER }}
           OEGV_PASSWORD: ${{ secrets.OEGV_PASSWORD }}
           OEGV_MODE: ${{ steps.local_time.outputs.sync_mode }}
+          OEGV_DIAGNOSTIC: ${{ steps.local_time.outputs.sync_mode == 'diagnose' && '1' || '0' }}
           MGA_SYNC_URL: https://mga-turnieranmeldung.bonso1.chatgpt.site/api/admin/masterliste/oegv-sync
           MGA_SYNC_TOKEN: ${{ secrets.MGA_SYNC_TOKEN }}
           MGA_SITE_BYPASS_TOKEN: ${{ secrets.MGA_SITE_BYPASS_TOKEN }}
         run: python oegv-sync/sync.py
+
+      - name: Diagnose-Screenshots als Artifact speichern
+        if: always() && steps.local_time.outputs.run_sync == 'true' && steps.local_time.outputs.sync_mode == 'diagnose'
+        uses: actions/upload-artifact@v4
+        with:
+          name: oegv-diagnose-${{ github.run_number }}
+          path: diagnostic-screenshots/
+          if-no-files-found: warn
+          retention-days: 7
