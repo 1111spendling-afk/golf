@@ -106,7 +106,7 @@ def find_result_button(page, first_name: str, last_name: str, club: str):
         """,
         {"name": wanted_name, "reverseName": wanted_name_reverse, "club": wanted_club},
     )
-    buttons = page.locator("button, input[type='submit'], a")
+    buttons = page.locator("button, input[type='submit'], input[type='button'], a")
     button_boxes = []
     for index in range(buttons.count()):
         button = buttons.nth(index)
@@ -132,7 +132,7 @@ def find_result_button(page, first_name: str, last_name: str, club: str):
     seen = set()
     for button in matches:
         try:
-            index = button.evaluate("(node) => Array.from(document.querySelectorAll('button, input[type=submit], a')).indexOf(node)")
+            index = button.evaluate("(node) => Array.from(document.querySelectorAll('button, input[type=submit], input[type=button], a')).indexOf(node)")
         except Exception:
             continue
         if index not in seen:
@@ -221,7 +221,7 @@ def diagnostic_snapshot(page, first_name: str, last_name: str, club: str, reason
 
 def diagnostic_results(page) -> list[str]:
     details: list[str] = []
-    buttons = page.locator("button, input[type='submit'], a")
+    buttons = page.locator("button, input[type='submit'], input[type='button'], a")
     for index in range(buttons.count()):
         button = buttons.nth(index)
         try:
