@@ -111,14 +111,36 @@ def find_result_button(page, first_name: str, last_name: str, club: str):
             const rect = element.getBoundingClientRect();
             return rect.width > 0 && rect.height > 0;
           };
+          const editDistance = (left, right) => {
+            const previous = Array.from({length: right.length + 1}, (_, index) => index);
+            for (let i = 1; i <= left.length; i++) {
+              let diagonal = previous[0];
+              previous[0] = i;
+              for (let j = 1; j <= right.length; j++) {
+                const above = previous[j];
+                previous[j] = left[i - 1] === right[j - 1]
+                  ? diagonal
+                  : Math.min(previous[j] + 1, previous[j - 1] + 1, diagonal + 1);
+                diagonal = above;
+              }
+            }
+            return previous[right.length];
+          };
+          const firstName = name.split(" ")[0] || "";
+          const lastName = name.split(" ").slice(1).join(" ");
+          const nameMatches = text => {
+            if (text.includes(needle) || text.includes(reverseName)) return true;
+            const tokens = text.split(/\\s+/).filter(Boolean);
+            return Boolean(lastName && text.includes(lastName) && tokens.some(token => editDistance(token, firstName) <= 1));
+          };
           const smallest = (needle, allowReverse = false) => Array.from(document.querySelectorAll("body *"))
             .filter(element => {
               const text = normalize(element.innerText || element.textContent || "");
-              const hit = allowReverse ? (text.includes(needle) || text.includes(reverseName)) : text.includes(needle);
+              const hit = allowReverse ? nameMatches(text) : text.includes(needle);
               if (!hit || !visible(element)) return false;
               return !Array.from(element.children).some(child => {
                 const childText = normalize(child.innerText || child.textContent || "");
-                return allowReverse ? (childText.includes(needle) || childText.includes(reverseName)) : childText.includes(needle);
+                return allowReverse ? nameMatches(childText) : childText.includes(needle);
               });
             })
             .map(element => {
