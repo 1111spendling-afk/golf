@@ -8,12 +8,15 @@ import json
 import os
 import re
 import sys
+from pathlib import Path
 import unicodedata
 import urllib.error
 import urllib.request
 from playwright.sync_api import sync_playwright
 
 FRIENDS_URL = "https://www.golf.at/mygolf/flightpartner"
+DIAGNOSTIC = os.environ.get("OEGV_DIAGNOSTIC", "").strip().lower() in {"1", "true", "yes", "diagnose"}
+DIAGNOSTIC_DIR = Path("diagnostic-screenshots")
 
 
 def env(name: str) -> str:
@@ -181,9 +184,47 @@ def get_friends() -> list[dict[str, str]]:
         return result
 
 
-def add_missing_players(players: list[dict[str, str]]) -> list[dict[str, str]]:
+
+def diagnostic_snapshot(page, first_name: str, last_name: str, club: str, reason: str) -> None:
+    if not DIAGNOSTIC:
+        return
+    DIAGNOSTIC_DIR.mkdir(parents=True, exist_ok=True)
+    safe = normalized(f"{last_name}_{first_name}")[:80].replace(" ", "_") or "spieler"
+    path = DIAGNOSTIC_DIR / f"{safe}.png"
+    page.screenshot(path=str(path), full_page=True)
+    print(f"DIAGNOSE SCREENSHOT: {path} | {reason}")
+
+
+def diagnostic_results(page) -> list[str]:
+    details: list[str] = []
+    buttons = page.locator("button, input[type='submit'], a")
+    for index in range(buttons.count()):
+        button = buttons.nth(index)
+        try:
+            label = normalized(button.inner_text() or button.get_attribute("value") or "")
+        except Exception:
+            continue
+        if label != "hinzufügen":
+            continue
+        container = button
+        best = ""
+        for _ in range(12):
+            container = container.locator("..")
+            try:
+                text = " ".join(container.inner_text(timeout=500).split())
+            except Exception:
+                continue
+            if len(text) >= 20 and (not best or len(text) < len(best)):
+                best = text
+        if best and best not in details:
+            details.append(best[:500])
+    return details
+
+
+def process_missing_players(players: list[dict[str, str]], perform_add: bool) -> list[dict[str, str]]:
     added: list[dict[str, str]] = []
     if not players:
+        print("Keine fehlenden Spieler für diesen Vorgang.")
         return added
     with sync_playwright() as playwright:
         browser, page = login_page(playwright)
@@ -194,18 +235,27 @@ def add_missing_players(players: list[dict[str, str]]) -> list[dict[str, str]]:
                 club = str(player.get("homeClub", "")).strip()
                 if not first_name or not last_name or not club:
                     continue
+                print(f"DIAGNOSE SUCHE: {last_name}, {first_name} | Masterlisten-Club: {club}")
                 if not click_if_present(page, ["a:has-text('Freunde hinzufügen')", "button:has-text('Freunde hinzufügen')"]):
                     raise RuntimeError("ÖGV-Schaltfläche 'Freunde hinzufügen' wurde nicht gefunden.")
                 if not fill_if_present(page, ["input[name*='nach' i]", "input[placeholder*='Nachname' i]", "input[aria-label*='Nachname' i]"], last_name[:20]):
                     raise RuntimeError(f"ÖGV-Nachnamefeld für {first_name} {last_name} wurde nicht gefunden.")
                 if not fill_if_present(page, ["input[name*='vor' i]", "input[placeholder*='Vorname' i]", "input[aria-label*='Vorname' i]"], first_name[:20]):
-                    raise RuntimeError(f"ÖGV-Vornamefeld für {first_name} {last_name} wurde nicht gefunden.")
+                    raise RuntimeError(f"ÖGV-Vornamefeld für {first_name} wurde nicht gefunden.")
                 if not click_if_present(page, ["button:has-text('Suchen')", "input[value='Suchen']"]):
                     raise RuntimeError(f"ÖGV-Suche für {first_name} {last_name} konnte nicht gestartet werden.")
                 wait_for_search_results(page)
+                details = diagnostic_results(page) if DIAGNOSTIC else []
+                for detail in details:
+                    print(f"DIAGNOSE TREFFER: {detail}")
                 matches = find_result_button(page, first_name, last_name, club)
+                print(f"DIAGNOSE ERGEBNIS: {len(matches)} passende Club-Zeilen")
                 if len(matches) != 1:
+                    diagnostic_snapshot(page, first_name, last_name, club, f"{len(matches)} passende Club-Zeilen")
                     print(f"Nicht eindeutig: {first_name} {last_name} – {club} ({len(matches)} Treffer)")
+                    continue
+                if not perform_add:
+                    print(f"DIAGNOSE VORSCHLAG: {last_name} {first_name} – {club} | kein Klick im Diagnosemodus")
                     continue
                 matches[0].click()
                 page.wait_for_timeout(1_500)
@@ -213,10 +263,19 @@ def add_missing_players(players: list[dict[str, str]]) -> list[dict[str, str]]:
                     added.append({"name": f"{last_name} {first_name}", "club": club})
                     print(f"Aufgenommen und bestätigt: {last_name} {first_name} – {club}")
                 else:
+                    diagnostic_snapshot(page, first_name, last_name, club, "Klick erfolgt, aber Aufnahme nicht bestätigt")
                     print(f"Nicht bestätigt: {last_name} {first_name} – {club}")
         finally:
             browser.close()
     return added
+
+
+def add_missing_players(players: list[dict[str, str]]) -> list[dict[str, str]]:
+    return process_missing_players(players, True)
+
+
+def diagnose_missing_players(players: list[dict[str, str]]) -> None:
+    process_missing_players(players, False)
 
 
 def post_to_mga(players: list[dict[str, str]], mode: str, added_players: list[dict[str, str]] | None = None) -> dict:
@@ -243,11 +302,13 @@ def post_to_mga(players: list[dict[str, str]], mode: str, added_players: list[di
 if __name__ == "__main__":
     try:
         mode = os.environ.get("OEGV_MODE", "whi").strip().lower()
-        if mode not in {"compare", "add_one", "add_missing", "whi"}:
+        if mode not in {"compare", "add_one", "add_missing", "whi", "diagnose"}:
             raise RuntimeError(f"Unbekannter ÖGV-Vorgang: {mode}")
         friends = get_friends()
         result = post_to_mga(friends, mode)
-        if mode in {"add_one", "add_missing"}:
+        if mode == "diagnose":
+            diagnose_missing_players(result.get("missingPlayers", []))
+        elif mode in {"add_one", "add_missing"}:
             candidates = result.get("missingPlayers", [])
             if mode == "add_one":
                 candidates = candidates[:1]
