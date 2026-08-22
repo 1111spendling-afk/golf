@@ -74,40 +74,10 @@ def name_matches(text: str, first_name: str, last_name: str) -> bool:
 
 
 def find_result_button(page, first_name: str, last_name: str, club: str):
-    """Match the visible result row to its adjacent add button.
-
-    The ÖGV page renders several result cards whose text is not always inside
-    the same DOM ancestor as the button. Matching by the visible row geometry
-    avoids treating the complete result list as one match.
-    """
-    wanted_name = normalized(f"{first_name} {last_name}")
-    wanted_name_reverse = normalized(f"{last_name} {first_name}")
+    """Find exactly one add button whose result container matches name and club."""
     wanted_club = normalized(club)
-    row_candidates = page.evaluate(
-        """
-        ({name, reverseName, club}) => {
-          const normalize = value => (value || "").normalize("NFKD")
-            .replace(/[\\u0300-\\u036f]/g, "")
-            .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-          const result = [];
-          for (const element of document.querySelectorAll("body *")) {
-            const text = normalize(element.innerText || "");
-            if (!(text.includes(name) || text.includes(reverseName)) || !text.includes(club)) continue;
-            const childMatch = Array.from(element.children).some(child => {
-              const childText = normalize(child.innerText || "");
-              return (childText.includes(name) || childText.includes(reverseName)) && childText.includes(club);
-            });
-            if (childMatch) continue;
-            const rect = element.getBoundingClientRect();
-            if (rect.width > 0 && rect.height > 0) result.push({x:rect.x,y:rect.y,width:rect.width,height:rect.height,text});
-          }
-          return result.sort((a,b) => a.text.length - b.text.length).slice(0, 30);
-        }
-        """,
-        {"name": wanted_name, "reverseName": wanted_name_reverse, "club": wanted_club},
-    )
+    matches = []
     buttons = page.locator("button, input[type='submit'], input[type='button'], a")
-    button_boxes = []
     for index in range(buttons.count()):
         button = buttons.nth(index)
         try:
@@ -116,73 +86,17 @@ def find_result_button(page, first_name: str, last_name: str, club: str):
             continue
         if label != "hinzufügen":
             continue
-        box = button.bounding_box()
-        if box:
-            button_boxes.append((index, box))
-    print(f"ÖGV-Hinzufügen-Schaltflächen erkannt: {len(button_boxes)}")
-    if not button_boxes:
-        try:
-            controls = page.locator("button, input, a")
-            labels = []
-            for control_index in range(min(controls.count(), 40)):
-                control = controls.nth(control_index)
-                label = normalized(control.inner_text() or control.get_attribute("value") or control.get_attribute("aria-label") or "")
-                if label:
-                    labels.append(label[:80])
-            print(f"ÖGV-Steuerelemente auf Seite: {labels}")
-            print(f"ÖGV-Seitenrahmen: {[frame.url for frame in page.frames]}")
-        except Exception as diagnostic_error:
-            print(f"ÖGV-DOM-Diagnose fehlgeschlagen: {diagnostic_error}")
-    direct_matches = []
-    for index, _box in button_boxes:
-        button = buttons.nth(index)
-        try:
-            ancestor_text = button.evaluate(
-                """
-                (node, wanted) => {
-                  const normalize = value => (value || "").normalize("NFKD")
-                    .replace(/[\\u0300-\\u036f]/g, "")
-                    .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-                  const name = normalize(wanted.name);
-                  const reverseName = normalize(wanted.reverseName);
-                  const club = normalize(wanted.club);
-                  let element = node.parentElement;
-                  for (let level = 0; element && level < 10; level++, element = element.parentElement) {
-                    const text = normalize(element.innerText || element.textContent || "");
-                    if (text.length <= 800 && (text.includes(name) || text.includes(reverseName)) && text.includes(club)) return text;
-                  }
-                  return "";
-                }
-                """,
-                {"name": wanted_name, "reverseName": wanted_name_reverse, "club": wanted_club},
-            )
-        except Exception:
-            continue
-        if ancestor_text:
-            direct_matches.append(button)
-    if len(direct_matches) == 1:
-        return direct_matches
-    matches = direct_matches if len(direct_matches) > 1 else []
-    for row in row_candidates:
-        row_center = row["y"] + row["height"] / 2
-        for index, box in button_boxes:
-            button_center = box["y"] + box["height"] / 2
-            same_row = abs(button_center - row_center) <= max(70, row["height"] * 1.5)
-            to_right = box["x"] + box["width"] >= row["x"] - 20
-            if same_row and to_right:
-                matches.append(buttons.nth(index))
-    unique = []
-    seen = set()
-    for button in matches:
-        try:
-            index = button.evaluate("(node) => Array.from(document.querySelectorAll('button, input[type=submit], input[type=button], a')).indexOf(node)")
-        except Exception:
-            continue
-        if index not in seen:
-            seen.add(index)
-            unique.append(button)
-    return unique
-
+        container = button
+        for _ in range(9):
+            container = container.locator("..")
+            try:
+                text = container.inner_text(timeout=500)
+            except Exception:
+                continue
+            if name_matches(text, first_name, last_name) and wanted_club in normalized(text):
+                matches.append(button)
+                break
+    return matches
 
 def verify_friend(page, first_name: str, last_name: str, club: str) -> bool:
     page.goto(FRIENDS_URL, wait_until="domcontentloaded")
