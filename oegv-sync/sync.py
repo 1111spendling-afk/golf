@@ -272,7 +272,7 @@ def process_missing_players(players: list[dict[str, str]], perform_add: bool) ->
                     raise RuntimeError(f"ÖGV-Vornamefeld für {first_name} wurde nicht gefunden.")
                 if not click_if_present(page, ["button:has-text('Suchen')", "input[value='Suchen']"]):
                     raise RuntimeError(f"ÖGV-Suche für {first_name} {last_name} konnte nicht gestartet werden.")
-                wait_for_search_results(page)
+                page.wait_for_timeout(1_500)
                 details = diagnostic_results(page) if DIAGNOSTIC else []
                 for detail in details:
                     print(f"DIAGNOSE TREFFER: {detail}")
