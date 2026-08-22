@@ -44,11 +44,10 @@ def wait_for_search_results(page) -> None:
     for selector in selectors:
         try:
             page.locator(selector).first.wait_for(state="visible", timeout=12_000)
-            page.wait_for_timeout(500)
             return
         except Exception:
             continue
-    page.wait_for_timeout(2_000)
+    return
 
 
 def fill_if_present(page, selectors: list[str], value: str) -> bool:
