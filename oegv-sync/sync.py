@@ -74,10 +74,43 @@ def name_matches(text: str, first_name: str, last_name: str) -> bool:
 
 
 def find_result_button(page, first_name: str, last_name: str, club: str):
-    """Find exactly one add button whose result container matches name and club."""
+    """Match the visible name/club row with the red add button on the same height."""
+    wanted_name = normalized(f"{first_name} {last_name}")
+    wanted_name_reverse = normalized(f"{last_name} {first_name}")
     wanted_club = normalized(club)
-    matches = []
+    row_boxes = page.evaluate(
+        """
+        ({name, reverseName, club}) => {
+          const normalize = value => (value || "").normalize("NFKD")
+            .replace(/[\\u0300-\\u036f]/g, "")
+            .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+          const visible = element => {
+            const rect = element.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+          };
+          const smallest = (needle, allowReverse = false) => Array.from(document.querySelectorAll("body *"))
+            .filter(element => {
+              const text = normalize(element.innerText || element.textContent || "");
+              const hit = allowReverse ? (text.includes(needle) || text.includes(reverseName)) : text.includes(needle);
+              if (!hit || !visible(element)) return false;
+              return !Array.from(element.children).some(child => {
+                const childText = normalize(child.innerText || child.textContent || "");
+                return allowReverse ? (childText.includes(needle) || childText.includes(reverseName)) : childText.includes(needle);
+              });
+            })
+            .map(element => {
+              const rect = element.getBoundingClientRect();
+              return {x: rect.x, y: rect.y, width: rect.width, height: rect.height};
+            });
+          return {names: smallest(name, true), clubs: smallest(club)};
+        }
+        """,
+        {"name": wanted_name, "reverseName": wanted_name_reverse, "club": wanted_club},
+    )
+    names = row_boxes.get("names", [])
+    clubs = row_boxes.get("clubs", [])
     buttons = page.locator("button, input[type='submit'], input[type='button'], a")
+    button_boxes = []
     for index in range(buttons.count()):
         button = buttons.nth(index)
         try:
@@ -86,18 +119,32 @@ def find_result_button(page, first_name: str, last_name: str, club: str):
             continue
         if label != "hinzufügen":
             continue
-        container = button
-        for _ in range(9):
-            container = container.locator("..")
-            try:
-                text = container.inner_text(timeout=500)
-            except Exception:
+        box = button.bounding_box()
+        if box:
+            button_boxes.append((index, box))
+    matches = []
+    for name_box in names:
+        name_center = name_box["y"] + name_box["height"] / 2
+        for club_box in clubs:
+            club_center = club_box["y"] + club_box["height"] / 2
+            if abs(name_center - club_center) > 70:
                 continue
-            if name_matches(text, first_name, last_name) and wanted_club in normalized(text):
-                matches.append(button)
-                break
-    return matches
-
+            row_center = (name_center + club_center) / 2
+            for index, box in button_boxes:
+                button_center = box["y"] + box["height"] / 2
+                if abs(button_center - row_center) <= 70 and box["x"] >= min(name_box["x"], club_box["x"]) - 20:
+                    matches.append(buttons.nth(index))
+    unique = []
+    seen = set()
+    for button in matches:
+        try:
+            index = button.evaluate("(node) => Array.from(document.querySelectorAll('button, input[type=submit], input[type=button], a')).indexOf(node)")
+        except Exception:
+            continue
+        if index not in seen:
+            seen.add(index)
+            unique.append(button)
+    return unique
 def verify_friend(page, first_name: str, last_name: str, club: str) -> bool:
     page.goto(FRIENDS_URL, wait_until="domcontentloaded")
     page.wait_for_timeout(1_500)
