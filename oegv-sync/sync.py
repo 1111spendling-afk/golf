@@ -56,9 +56,16 @@ def name_matches(text: str, first_name: str, last_name: str) -> bool:
 
 
 def find_result_button(page, first_name: str, last_name: str, club: str):
-    """Find exactly one add button whose smallest useful result container matches."""
+    """Find the add button in the one result row matching name and club.
+
+    The ÖGV result page contains several rows. A broad parent can contain all
+    rows and would make every button look like a match, so only a compact
+    ancestor with exactly one occurrence of the requested surname and club is
+    accepted.
+    """
     wanted_club = normalized(club)
-    matches = []
+    wanted_last = normalized(last_name)
+    candidates: list[tuple[int, object]] = []
     buttons = page.locator("button, input[type='submit'], a")
     for index in range(buttons.count()):
         button = buttons.nth(index)
@@ -69,16 +76,27 @@ def find_result_button(page, first_name: str, last_name: str, club: str):
         if label != "hinzufügen":
             continue
         container = button
-        for _ in range(9):
+        best_text = ""
+        best_length = 10**9
+        for _ in range(12):
             container = container.locator("..")
             try:
-                text = container.inner_text(timeout=500)
+                text = normalized(container.inner_text(timeout=500))
             except Exception:
                 continue
-            if name_matches(text, first_name, last_name) and wanted_club in normalized(text):
-                matches.append(button)
-                break
-    return matches
+            if not name_matches(text, first_name, last_name) or wanted_club not in text:
+                continue
+            if text.count(wanted_last) != 1 or text.count(wanted_club) != 1:
+                continue
+            if len(text) < best_length:
+                best_text = text
+                best_length = len(text)
+        if best_text:
+            candidates.append((best_length, button))
+    if not candidates:
+        return []
+    smallest = min(length for length, _ in candidates)
+    return [button for length, button in candidates if length == smallest]
 
 
 def verify_friend(page, first_name: str, last_name: str, club: str) -> bool:
