@@ -73,18 +73,42 @@ def name_matches(text: str, first_name: str, last_name: str) -> bool:
     return normalized(first_name) in haystack and normalized(last_name) in haystack
 
 
-def find_result_button(page, first_name: str, last_name: str, club: str):
-    """Find the add button in the one result row matching name and club.
 
-    The ÖGV result page contains several rows. A broad parent can contain all
-    rows and would make every button look like a match, so only a compact
-    ancestor with exactly one occurrence of the requested surname and club is
-    accepted.
+def find_result_button(page, first_name: str, last_name: str, club: str):
+    """Match the visible result row to its adjacent add button.
+
+    The ÖGV page renders several result cards whose text is not always inside
+    the same DOM ancestor as the button. Matching by the visible row geometry
+    avoids treating the complete result list as one match.
     """
+    wanted_name = normalized(f"{first_name} {last_name}")
+    wanted_name_reverse = normalized(f"{last_name} {first_name}")
     wanted_club = normalized(club)
-    wanted_last = normalized(last_name)
-    candidates: list[tuple[int, object]] = []
+    row_candidates = page.evaluate(
+        """
+        ({name, reverseName, club}) => {
+          const normalize = value => (value || "").normalize("NFKD")
+            .replace(/[\\u0300-\\u036f]/g, "")
+            .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+          const result = [];
+          for (const element of document.querySelectorAll("body *")) {
+            const text = normalize(element.innerText || "");
+            if (!(text.includes(name) || text.includes(reverseName)) || !text.includes(club)) continue;
+            const childMatch = Array.from(element.children).some(child => {
+              const childText = normalize(child.innerText || "");
+              return (childText.includes(name) || childText.includes(reverseName)) && childText.includes(club);
+            });
+            if (childMatch) continue;
+            const rect = element.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) result.push({x:rect.x,y:rect.y,width:rect.width,height:rect.height,text});
+          }
+          return result.sort((a,b) => a.text.length - b.text.length).slice(0, 30);
+        }
+        """,
+        {"name": wanted_name, "reverseName": wanted_name_reverse, "club": wanted_club},
+    )
     buttons = page.locator("button, input[type='submit'], a")
+    button_boxes = []
     for index in range(buttons.count()):
         button = buttons.nth(index)
         try:
@@ -93,28 +117,29 @@ def find_result_button(page, first_name: str, last_name: str, club: str):
             continue
         if label != "hinzufügen":
             continue
-        container = button
-        best_text = ""
-        best_length = 10**9
-        for _ in range(12):
-            container = container.locator("..")
-            try:
-                text = normalized(container.inner_text(timeout=500))
-            except Exception:
-                continue
-            if not name_matches(text, first_name, last_name) or wanted_club not in text:
-                continue
-            if text.count(wanted_last) != 1 or text.count(wanted_club) != 1:
-                continue
-            if len(text) < best_length:
-                best_text = text
-                best_length = len(text)
-        if best_text:
-            candidates.append((best_length, button))
-    if not candidates:
-        return []
-    smallest = min(length for length, _ in candidates)
-    return [button for length, button in candidates if length == smallest]
+        box = button.bounding_box()
+        if box:
+            button_boxes.append((index, box))
+    matches = []
+    for row in row_candidates:
+        row_center = row["y"] + row["height"] / 2
+        for index, box in button_boxes:
+            button_center = box["y"] + box["height"] / 2
+            same_row = abs(button_center - row_center) <= max(70, row["height"] * 1.5)
+            to_right = box["x"] + box["width"] >= row["x"] - 20
+            if same_row and to_right:
+                matches.append(buttons.nth(index))
+    unique = []
+    seen = set()
+    for button in matches:
+        try:
+            index = button.evaluate("(node) => Array.from(document.querySelectorAll('button, input[type=submit], a')).indexOf(node)")
+        except Exception:
+            continue
+        if index not in seen:
+            seen.add(index)
+            unique.append(button)
+    return unique
 
 
 def verify_friend(page, first_name: str, last_name: str, club: str) -> bool:
