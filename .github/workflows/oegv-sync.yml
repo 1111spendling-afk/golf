@@ -1,4 +1,17 @@
-name: MGA ÖGV-Friendslist-Abgleich
+name: Masterlist / Friendslist
+
+run-name: >-
+  ${{ github.event_name == 'schedule'
+    && 'Masterlist Friendslist Abgleich (automatisch)'
+    || inputs.mode == 'compare'
+    && 'Friendslist Vergleich'
+    || inputs.mode == 'add_missing'
+    && 'Masterlist Friendslist Hinzufügen'
+    || inputs.mode == 'add_one'
+    && 'Masterlist Friendslist Test-Hinzufügen'
+    || inputs.mode == 'whi'
+    && 'Masterlist WHI-Abgleich'
+    || 'Masterlist Friendslist Diagnose' }}
 
 on:
   workflow_dispatch:
@@ -41,7 +54,10 @@ jobs:
         run: |
           local_time="$(TZ=Europe/Vienna date +%H:%M)"
           local_offset="$(TZ=Europe/Vienna date +%z)"
+          local_iso="$(TZ=Europe/Vienna date --iso-8601=seconds)"
           echo "Österreichische Zeit: $local_time (UTC$local_offset)"
+          echo "Österreichischer Zeitstempel: $local_iso"
+          echo "Österreichischer Zeitstempel: $local_iso" >> "$GITHUB_STEP_SUMMARY"
           echo "GitHub-Auslöser: $EVENT_NAME | Zeitplan: $SCHEDULE"
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
