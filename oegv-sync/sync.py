@@ -392,13 +392,17 @@ def search_variants(first_name: str, last_name: str) -> list[tuple[str, str]]:
             if len(query) >= 2 and query not in first_queries:
                 first_queries.append(query)
     last_queries = []
+    short_last_queries = []
     for token in sorted(last_tokens, key=len):
         for query in (token[:3], token[:4], token[:6], token):
             if len(query) >= 3 and query not in last_queries:
                 last_queries.append(query)
+        if len(token) == 2 and token not in short_last_queries:
+            short_last_queries.append(token)
     for query in (normalized(last_name)[:3], normalized(last_name)[:6], normalized(last_name)):
         if len(query) >= 3 and query not in last_queries:
             last_queries.append(query)
+    last_queries.extend(query for query in short_last_queries if query not in last_queries)
     return [(last_query, first_query) for last_query in last_queries for first_query in first_queries]
 
 
