@@ -73,11 +73,38 @@ def club_key(value: str) -> tuple[str, ...]:
     return tuple(token for token in normalized(value).split() if token not in generic)
 
 
+CLUB_ALIAS_GROUPS = [
+    ("atzenbrugg", {"atzenbrugg", "atzenbruck"}),
+    ("ottenstein", {"ottenstein"}),
+    ("himberg", {"himberg", "gutenhof"}),
+    ("ebreichsdorf", {"ebreichsdorf"}),
+]
+
+def club_match_tokens(value: str) -> set[str]:
+    value_norm = normalized(value)
+    tokens = set(club_key(value))
+    tokens.discard("diamond")
+    for canonical, aliases in CLUB_ALIAS_GROUPS:
+        if any(alias in value_norm for alias in aliases):
+            tokens.add(canonical)
+    return tokens
+
+
 def clubs_equivalent(left: str, right: str) -> bool:
-    left_tokens, right_tokens = set(club_key(left)), set(club_key(right))
+    left_norm, right_norm = normalized(left), normalized(right)
+    if left_norm == right_norm:
+        return True
+    left_tokens, right_tokens = club_match_tokens(left), club_match_tokens(right)
     if not left_tokens or not right_tokens:
-        return normalized(left) == normalized(right)
-    return left_tokens == right_tokens or left_tokens <= right_tokens or right_tokens <= left_tokens
+        return False
+    if left_tokens & right_tokens:
+        return True
+    for left_token in left_tokens:
+        for right_token in right_tokens:
+            shorter, longer = sorted((left_token, right_token), key=len)
+            if len(shorter) >= 5 and edit_distance(shorter, longer) <= 2:
+                return True
+    return False
 
 
 def edit_distance(left: str, right: str) -> int:
@@ -146,26 +173,47 @@ def first_names_equivalent(left: str, right: str) -> bool:
     return False
 
 
-def name_matches(text: str, first_name: str, last_name: str) -> bool:
-    tokens = normalized(text).split()[:6]
+def name_match_flags(text: str, first_name: str, last_name: str) -> tuple[bool, bool]:
+    tokens = normalized(text).split()[:8]
     first_tokens = normalized(first_name).split()
     last_tokens = normalized(last_name).split()
     if not tokens or not first_tokens or not last_tokens:
-        return False
+        return False, False
     first_ok = any(first_names_equivalent(token, wanted) for token in tokens for wanted in first_tokens)
-    if not first_ok:
-        return False
-    for wanted in last_tokens:
-        if any(token == wanted or (len(wanted) >= 4 and edit_distance(token, wanted) <= 2) for token in tokens):
-            return True
-    return False
+    last_ok = any(
+        token == wanted or (len(wanted) >= 4 and edit_distance(token, wanted) <= 2)
+        for token in tokens for wanted in last_tokens
+    )
+    return first_ok, last_ok
+
+
+def name_matches(text: str, first_name: str, last_name: str) -> bool:
+    first_ok, last_ok = name_match_flags(text, first_name, last_name)
+    return first_ok and last_ok
 
 
 
-def find_result_button(page, first_name: str, last_name: str, club: str):
-    """Match the actual add button inside the matching visible result row."""
+def parse_candidate_whi(text: str) -> float | None:
+    values = re.findall(r"(?<!\d)(\d{1,2}(?:[.,]\d)?)(?!\d)", text)
+    for value in values:
+        try:
+            number = float(value.replace(",", "."))
+        except ValueError:
+            continue
+        if 0 <= number <= 54:
+            return number
+    return None
+
+
+def find_result_candidates(page, first_name: str, last_name: str, club: str, whi: str = "") -> list[dict]:
+    """Collect visible ÖGV rows and score first name, surname, club and WHI."""
     buttons = page.locator("button, input[type='submit'], input[type='button'], a")
-    matches = []
+    candidates = []
+    seen_rows = set()
+    try:
+        master_whi = float(str(whi).replace(",", ".")) if str(whi).strip() else None
+    except ValueError:
+        master_whi = None
     for index in range(buttons.count()):
         button = buttons.nth(index)
         try:
@@ -175,13 +223,13 @@ def find_result_button(page, first_name: str, last_name: str, club: str):
         if label != normalized("Hinzufügen"):
             continue
         container = button
-        for _ in range(8):
+        for _ in range(10):
             container = container.locator("..")
             try:
                 row_text = " ".join(container.inner_text(timeout=500).split())
             except Exception:
                 continue
-            if not row_text or len(row_text) < 20:
+            if len(row_text) < 20:
                 continue
             row_buttons = container.locator("button, input[type='submit'], input[type='button'], a")
             add_buttons = []
@@ -193,22 +241,32 @@ def find_result_button(page, first_name: str, last_name: str, club: str):
                     continue
                 if row_label == normalized("Hinzufügen"):
                     add_buttons.append(row_button)
-            if len(add_buttons) != 1:
+            if len(add_buttons) != 1 or row_text in seen_rows:
                 continue
-            if name_matches(row_text, first_name, last_name) and clubs_equivalent(row_text, club):
-                matches.append(add_buttons[0])
-                break
-    unique = []
-    seen = set()
-    for button in matches:
-        try:
-            identity = button.evaluate("(node) => node")
-        except Exception:
-            identity = str(len(unique))
-        if identity not in seen:
-            seen.add(identity)
-            unique.append(button)
-    return unique
+            seen_rows.add(row_text)
+            first_ok, last_ok = name_match_flags(row_text, first_name, last_name)
+            club_ok = clubs_equivalent(row_text, club)
+            candidate_whi = parse_candidate_whi(row_text)
+            whi_diff = abs(candidate_whi - master_whi) if candidate_whi is not None and master_whi is not None else None
+            candidates.append({
+                "button": add_buttons[0],
+                "text": row_text[:500],
+                "first": first_ok,
+                "last": last_ok,
+                "club": club_ok,
+                "whi": candidate_whi,
+                "whiDiff": whi_diff,
+                "score": sum((first_ok, last_ok, club_ok)),
+            })
+            break
+    return candidates
+
+
+def find_result_button(page, first_name: str, last_name: str, club: str, whi: str = ""):
+    candidates = find_result_candidates(page, first_name, last_name, club, whi)
+    return [candidate["button"] for candidate in candidates if candidate["score"] >= 2]
+
+
 
 
 def verify_friend(page, first_name: str, last_name: str, club: str) -> bool:
@@ -327,6 +385,7 @@ def process_missing_players(players: list[dict[str, str]], perform_add: bool) ->
                 first_name = str(player.get("firstName", "")).strip()
                 last_name = str(player.get("lastName", "")).strip()
                 club = str(player.get("homeClub", "")).strip()
+                whi = str(player.get("whi", player.get("WHI", ""))).strip()
                 if not first_name or not last_name or not club:
                     continue
                 if normalized(first_name) == "thomas" and normalized(last_name) == "popp":
@@ -345,19 +404,42 @@ def process_missing_players(players: list[dict[str, str]], perform_add: bool) ->
                 details = diagnostic_results(page) if DIAGNOSTIC else []
                 for detail in details:
                     print(f"DIAGNOSE TREFFER: {detail}")
-                matches = find_result_button(page, first_name, last_name, club)
-                print(f"DIAGNOSE ERGEBNIS: {len(matches)} passende Club-Zeilen")
-                if len(matches) != 1:
-                    diagnostic_snapshot(page, first_name, last_name, club, f"{len(matches)} passende Club-Zeilen")
-                    print(f"Nicht eindeutig: {first_name} {last_name} – {club} ({len(matches)} Treffer)")
+                candidates = find_result_candidates(page, first_name, last_name, club, whi)
+                print(f"DIAGNOSE ERGEBNIS: {len(candidates)} sichtbare Treffer")
+                eligible = [candidate for candidate in candidates if candidate["score"] >= 2]
+                choice = None
+                review_reason = ""
+                if len(eligible) == 1:
+                    choice = eligible[0]
+                    if choice["score"] < 3:
+                        review_reason = "nur zwei Merkmale sicher passend"
+                elif len(eligible) > 1:
+                    with_whi = [candidate for candidate in eligible if candidate["whiDiff"] is not None and candidate["whiDiff"] <= 5]
+                    if len(with_whi) == 1:
+                        choice = with_whi[0]
+                        review_reason = "mehrere Treffer; Auswahl über WHI-Abstand"
+                    else:
+                        review_reason = "mehrere passende Treffer"
+                else:
+                    named = [candidate for candidate in candidates if candidate["first"] and candidate["last"] and candidate["whiDiff"] is not None and candidate["whiDiff"] <= 5]
+                    if len(named) == 1:
+                        choice = named[0]
+                        review_reason = "Clubbezeichnung abweichend; Auswahl über WHI-Abstand"
+                    else:
+                        review_reason = "zu wenige sichere Merkmale"
+                if choice is None:
+                    diagnostic_snapshot(page, first_name, last_name, club, "MANUELL PRÜFEN: " + review_reason)
+                    print(f"MANUELL PRÜFEN: {first_name} {last_name} – {club} ({review_reason})")
                     continue
+                if review_reason:
+                    print(f"MANUELL PRÜFEN NACH AUFNAHME: {last_name} {first_name} – {club} ({review_reason})")
                 if not perform_add:
                     print(f"DIAGNOSE VORSCHLAG: {last_name} {first_name} – {club} | kein Klick im Diagnosemodus")
                     continue
-                matches[0].click()
+                choice["button"].click()
                 page.wait_for_timeout(1_500)
                 if verify_friend(page, first_name, last_name, club):
-                    added.append({"name": f"{last_name} {first_name}", "club": club})
+                    added.append({"name": f"{last_name} {first_name}", "club": club, "review": bool(review_reason), "reviewReason": review_reason})
                     print(f"Aufgenommen und bestätigt: {last_name} {first_name} – {club}")
                 else:
                     diagnostic_snapshot(page, first_name, last_name, club, "Klick erfolgt, aber Aufnahme nicht bestätigt")
