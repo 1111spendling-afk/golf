@@ -67,9 +67,16 @@ def normalized(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", plain.casefold()).strip()
 
 
-def club_key(value: str) -> str:
-    generic = {"gc", "golf", "club", "golfclub", "schloss", "e", "v"}
-    return " ".join(token for token in normalized(value).split() if token not in generic)
+def club_key(value: str) -> tuple[str, ...]:
+    generic = {"gc", "golf", "club", "golfclub", "golfanlage", "golfplatz", "schloss", "country", "resort", "e", "v"}
+    return tuple(token for token in normalized(value).split() if token not in generic)
+
+
+def clubs_equivalent(left: str, right: str) -> bool:
+    left_tokens, right_tokens = set(club_key(left)), set(club_key(right))
+    if not left_tokens or not right_tokens:
+        return normalized(left) == normalized(right)
+    return left_tokens == right_tokens or left_tokens <= right_tokens or right_tokens <= left_tokens
 
 
 def edit_distance(left: str, right: str) -> int:
@@ -89,18 +96,15 @@ def edit_distance(left: str, right: str) -> int:
 
 
 def first_names_equivalent(left: str, right: str) -> bool:
-    left, right = normalized(left), normalized(right)
-    if left == right:
-        return True
-    aliases = [
-        {"max", "maximilian"},
-        {"michi", "michael"},
-        {"chris", "christoph", "christof"},
-    ]
-    if any(left in group and right in group for group in aliases):
-        return True
-    shorter, longer = sorted((left, right), key=len)
-    return len(shorter) >= 3 and longer.startswith(shorter) or edit_distance(left, right) <= 1
+    left_tokens, right_tokens = normalized(left).split(), normalized(right).split()
+    if not left_tokens or not right_tokens:
+        return False
+    for left_token in left_tokens:
+        for right_token in right_tokens:
+            shorter, longer = sorted((left_token, right_token), key=len)
+            if left_token == right_token or (len(shorter) >= 3 and longer.startswith(shorter)) or edit_distance(left_token, right_token) <= 1:
+                return True
+    return False
 
 
 def name_matches(text: str, first_name: str, last_name: str) -> bool:
@@ -218,7 +222,7 @@ def verify_friend(page, first_name: str, last_name: str, club: str) -> bool:
         page.wait_for_timeout(150)
     friends = parse_friends(page.evaluate("document.body.innerText"))
     wanted_club = normalized(club)
-    return any(name_matches(item["name"], first_name, last_name) and club_key(item["club"]) == wanted_club for item in friends)
+    return any(name_matches(item["name"], first_name, last_name) and clubs_equivalent(item["club"], club) for item in friends)
 
 
 def login_page(playwright):
