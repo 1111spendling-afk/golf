@@ -130,7 +130,7 @@ def find_result_button(page, first_name: str, last_name: str, club: str):
             label = normalized(button.inner_text() or button.get_attribute("value") or "")
         except Exception:
             continue
-        if label != "hinzufügen":
+        if label != normalized("Hinzufügen"):
             continue
         container = button
         for _ in range(8):
@@ -149,7 +149,7 @@ def find_result_button(page, first_name: str, last_name: str, club: str):
                     row_label = normalized(row_button.inner_text() or row_button.get_attribute("value") or "")
                 except Exception:
                     continue
-                if row_label == "hinzufügen":
+                if row_label == normalized("Hinzufügen"):
                     add_buttons.append(row_button)
             if len(add_buttons) != 1:
                 continue
