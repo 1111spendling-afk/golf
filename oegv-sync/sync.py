@@ -63,8 +63,9 @@ def fill_if_present(page, selectors: list[str], value: str) -> bool:
 
 
 def normalized(value: str) -> str:
+    value = value.casefold().translate(str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}))
     plain = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
-    return re.sub(r"[^a-z0-9]+", " ", plain.casefold()).strip()
+    return re.sub(r"[^a-z0-9]+", " ", plain).strip()
 
 
 def club_key(value: str) -> tuple[str, ...]:
@@ -108,15 +109,18 @@ def first_names_equivalent(left: str, right: str) -> bool:
 
 
 def name_matches(text: str, first_name: str, last_name: str) -> bool:
-    haystack = normalized(text)
-    first = normalized(first_name)
-    last = normalized(last_name)
-    if first in haystack and last in haystack:
-        return True
-    if last not in haystack:
+    tokens = normalized(text).split()[:6]
+    first_tokens = normalized(first_name).split()
+    last_tokens = normalized(last_name).split()
+    if not tokens or not first_tokens or not last_tokens:
         return False
-    remaining = haystack.replace(last, " ", 1).strip()
-    return first_names_equivalent(remaining, first)
+    first_ok = any(first_names_equivalent(token, wanted) for token in tokens for wanted in first_tokens)
+    if not first_ok:
+        return False
+    for wanted in last_tokens:
+        if any(token == wanted or (len(wanted) >= 4 and edit_distance(token, wanted) <= 2) for token in tokens):
+            return True
+    return False
 
 
 
