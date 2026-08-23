@@ -150,21 +150,38 @@ def find_result_button(page, first_name: str, last_name: str, club: str):
             }
             return previous[right.length];
           };
-          const firstName = name.split(" ")[0] || "";
-          const lastName = name.split(" ").slice(1).join(" ");
+          const genericClubWords = new Set(["gc","golf","club","golfclub","golfanlage","golfplatz","schloss","country","resort","e","v"]);
+          const tokens = value => normalize(value).split(/\\s+/).filter(Boolean);
+          const clubTokens = value => tokens(value).filter(token => !genericClubWords.has(token));
+          const clubsEquivalent = (left, right) => {
+            const a = new Set(clubTokens(left)), b = new Set(clubTokens(right));
+            if (!a.size || !b.size) return normalize(left) === normalize(right);
+            return [...a].every(token => b.has(token)) || [...b].every(token => a.has(token));
+          };
+          const firstNamesEquivalent = (left, right) => {
+            const leftTokens = tokens(left), rightTokens = tokens(right);
+            return leftTokens.some(a => rightTokens.some(b => {
+              const shorter = a.length <= b.length ? a : b;
+              const longer = a.length <= b.length ? b : a;
+              return a === b || (shorter.length >= 3 && longer.startsWith(shorter)) ||
+                editDistance(a, b) <= (shorter.length >= 6 ? 2 : 1);
+            }));
+          };
           const nameMatches = (text, needle, reverseNeedle) => {
             if (text.includes(needle) || text.includes(reverseNeedle)) return true;
-            const tokens = text.split(/\\s+/).filter(Boolean);
-            return Boolean(lastName && text.includes(lastName) && tokens.some(token => editDistance(token, firstName) <= 1));
+            const nameParts = needle.split(/\\s+/).filter(Boolean);
+            const firstName = nameParts[0] || "";
+            const lastName = nameParts.slice(1).join(" ");
+            return Boolean(lastName && text.includes(lastName) && firstNamesEquivalent(text, firstName));
           };
           const smallest = (needle, allowReverse = false) => Array.from(document.querySelectorAll("body *"))
             .filter(element => {
               const text = normalize(element.innerText || element.textContent || "");
-              const hit = allowReverse ? nameMatches(text, needle, reverseName) : text.includes(needle);
+              const hit = allowReverse ? nameMatches(text, needle, reverseName) : clubsEquivalent(text, needle);
               if (!hit || !visible(element)) return false;
               return !Array.from(element.children).some(child => {
                 const childText = normalize(child.innerText || child.textContent || "");
-                return allowReverse ? nameMatches(childText, needle, reverseName) : childText.includes(needle);
+                return allowReverse ? nameMatches(childText, needle, reverseName) : clubsEquivalent(childText, needle);
               });
             })
             .map(element => {
