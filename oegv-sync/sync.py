@@ -121,82 +121,9 @@ def name_matches(text: str, first_name: str, last_name: str) -> bool:
 
 
 def find_result_button(page, first_name: str, last_name: str, club: str):
-    """Match the visible name/club row with the red add button on the same height."""
-    wanted_name = normalized(f"{first_name} {last_name}")
-    wanted_name_reverse = normalized(f"{last_name} {first_name}")
-    wanted_club = normalized(club)
-    row_boxes = page.evaluate(
-        """
-        ({name, reverseName, club}) => {
-          const normalize = value => (value || "").normalize("NFKD")
-            .replace(/[\\u0300-\\u036f]/g, "")
-            .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-          const visible = element => {
-            const rect = element.getBoundingClientRect();
-            return rect.width > 0 && rect.height > 0;
-          };
-          const editDistance = (left, right) => {
-            const previous = Array.from({length: right.length + 1}, (_, index) => index);
-            for (let i = 1; i <= left.length; i++) {
-              let diagonal = previous[0];
-              previous[0] = i;
-              for (let j = 1; j <= right.length; j++) {
-                const above = previous[j];
-                previous[j] = left[i - 1] === right[j - 1]
-                  ? diagonal
-                  : Math.min(previous[j] + 1, previous[j - 1] + 1, diagonal + 1);
-                diagonal = above;
-              }
-            }
-            return previous[right.length];
-          };
-          const genericClubWords = new Set(["gc","golf","club","golfclub","golfanlage","golfplatz","schloss","country","resort","e","v"]);
-          const tokens = value => normalize(value).split(/\\s+/).filter(Boolean);
-          const clubTokens = value => tokens(value).filter(token => !genericClubWords.has(token));
-          const clubsEquivalent = (left, right) => {
-            const a = new Set(clubTokens(left)), b = new Set(clubTokens(right));
-            if (!a.size || !b.size) return normalize(left) === normalize(right);
-            return [...a].every(token => b.has(token)) || [...b].every(token => a.has(token));
-          };
-          const firstNamesEquivalent = (left, right) => {
-            const leftTokens = tokens(left), rightTokens = tokens(right);
-            return leftTokens.some(a => rightTokens.some(b => {
-              const shorter = a.length <= b.length ? a : b;
-              const longer = a.length <= b.length ? b : a;
-              return a === b || (shorter.length >= 3 && longer.startsWith(shorter)) ||
-                editDistance(a, b) <= (shorter.length >= 6 ? 2 : 1);
-            }));
-          };
-          const nameMatches = (text, needle, reverseNeedle) => {
-            if (text.includes(needle) || text.includes(reverseNeedle)) return true;
-            const nameParts = needle.split(/\\s+/).filter(Boolean);
-            const firstName = nameParts[0] || "";
-            const lastName = nameParts.slice(1).join(" ");
-            return Boolean(lastName && text.includes(lastName) && firstNamesEquivalent(text, firstName));
-          };
-          const smallest = (needle, allowReverse = false) => Array.from(document.querySelectorAll("body *"))
-            .filter(element => {
-              const text = normalize(element.innerText || element.textContent || "");
-              const hit = allowReverse ? nameMatches(text, needle, reverseName) : clubsEquivalent(text, needle);
-              if (!hit || !visible(element)) return false;
-              return !Array.from(element.children).some(child => {
-                const childText = normalize(child.innerText || child.textContent || "");
-                return allowReverse ? nameMatches(childText, needle, reverseName) : clubsEquivalent(childText, needle);
-              });
-            })
-            .map(element => {
-              const rect = element.getBoundingClientRect();
-              return {x: rect.x, y: rect.y, width: rect.width, height: rect.height};
-            });
-          return {names: smallest(name, true), clubs: smallest(club)};
-        }
-        """,
-        {"name": wanted_name, "reverseName": wanted_name_reverse, "club": wanted_club},
-    )
-    names = row_boxes.get("names", [])
-    clubs = row_boxes.get("clubs", [])
+    """Match the actual add button inside the matching visible result row."""
     buttons = page.locator("button, input[type='submit'], input[type='button'], a")
-    button_boxes = []
+    matches = []
     for index in range(buttons.count()):
         button = buttons.nth(index)
         try:
@@ -205,32 +132,43 @@ def find_result_button(page, first_name: str, last_name: str, club: str):
             continue
         if label != "hinzufügen":
             continue
-        box = button.bounding_box()
-        if box:
-            button_boxes.append((index, box))
-    matches = []
-    for name_box in names:
-        name_center = name_box["y"] + name_box["height"] / 2
-        for club_box in clubs:
-            club_center = club_box["y"] + club_box["height"] / 2
-            if abs(name_center - club_center) > 70:
+        container = button
+        for _ in range(8):
+            container = container.locator("..")
+            try:
+                row_text = " ".join(container.inner_text(timeout=500).split())
+            except Exception:
                 continue
-            row_center = (name_center + club_center) / 2
-            for index, box in button_boxes:
-                button_center = box["y"] + box["height"] / 2
-                if abs(button_center - row_center) <= 70 and box["x"] >= min(name_box["x"], club_box["x"]) - 20:
-                    matches.append(buttons.nth(index))
+            if not row_text or len(row_text) < 20:
+                continue
+            row_buttons = container.locator("button, input[type='submit'], input[type='button'], a")
+            add_buttons = []
+            for row_index in range(row_buttons.count()):
+                row_button = row_buttons.nth(row_index)
+                try:
+                    row_label = normalized(row_button.inner_text() or row_button.get_attribute("value") or "")
+                except Exception:
+                    continue
+                if row_label == "hinzufügen":
+                    add_buttons.append(row_button)
+            if len(add_buttons) != 1:
+                continue
+            if name_matches(row_text, first_name, last_name) and clubs_equivalent(row_text, club):
+                matches.append(add_buttons[0])
+                break
     unique = []
     seen = set()
     for button in matches:
         try:
-            index = button.evaluate("(node) => Array.from(document.querySelectorAll('button, input[type=submit], input[type=button], a')).indexOf(node)")
+            identity = button.evaluate("(node) => node")
         except Exception:
-            continue
-        if index not in seen:
-            seen.add(index)
+            identity = str(len(unique))
+        if identity not in seen:
+            seen.add(identity)
             unique.append(button)
     return unique
+
+
 def verify_friend(page, first_name: str, last_name: str, club: str) -> bool:
     page.goto(FRIENDS_URL, wait_until="domcontentloaded")
     page.wait_for_timeout(1_500)
