@@ -67,6 +67,11 @@ def normalized(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", plain.casefold()).strip()
 
 
+def club_key(value: str) -> str:
+    generic = {"gc", "golf", "club", "golfclub", "schloss", "e", "v"}
+    return " ".join(token for token in normalized(value).split() if token not in generic)
+
+
 def edit_distance(left: str, right: str) -> int:
     previous = list(range(len(right) + 1))
     for row_index, left_char in enumerate(left, start=1):
@@ -83,6 +88,21 @@ def edit_distance(left: str, right: str) -> int:
     return previous[-1]
 
 
+def first_names_equivalent(left: str, right: str) -> bool:
+    left, right = normalized(left), normalized(right)
+    if left == right:
+        return True
+    aliases = [
+        {"max", "maximilian"},
+        {"michi", "michael"},
+        {"chris", "christoph", "christof"},
+    ]
+    if any(left in group and right in group for group in aliases):
+        return True
+    shorter, longer = sorted((left, right), key=len)
+    return len(shorter) >= 3 and longer.startswith(shorter) or edit_distance(left, right) <= 1
+
+
 def name_matches(text: str, first_name: str, last_name: str) -> bool:
     haystack = normalized(text)
     first = normalized(first_name)
@@ -92,7 +112,7 @@ def name_matches(text: str, first_name: str, last_name: str) -> bool:
     if last not in haystack:
         return False
     remaining = haystack.replace(last, " ", 1).strip()
-    return edit_distance(remaining, first) <= 1
+    return first_names_equivalent(remaining, first)
 
 
 
@@ -100,7 +120,7 @@ def find_result_button(page, first_name: str, last_name: str, club: str):
     """Match the visible name/club row with the red add button on the same height."""
     wanted_name = normalized(f"{first_name} {last_name}")
     wanted_name_reverse = normalized(f"{last_name} {first_name}")
-    wanted_club = normalized(club)
+    wanted_club = club_key(club)
     row_boxes = page.evaluate(
         """
         ({name, reverseName, club}) => {
@@ -198,7 +218,7 @@ def verify_friend(page, first_name: str, last_name: str, club: str) -> bool:
         page.wait_for_timeout(150)
     friends = parse_friends(page.evaluate("document.body.innerText"))
     wanted_club = normalized(club)
-    return any(name_matches(item["name"], first_name, last_name) and normalized(item["club"]) == wanted_club for item in friends)
+    return any(name_matches(item["name"], first_name, last_name) and club_key(item["club"]) == wanted_club for item in friends)
 
 
 def login_page(playwright):
