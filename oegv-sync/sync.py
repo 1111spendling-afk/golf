@@ -96,8 +96,46 @@ def edit_distance(left: str, right: str) -> int:
     return previous[-1]
 
 
+FIRST_NAME_ALIAS_GROUPS = [
+    {"max", "maximilian"},
+    {"karli", "karl"},
+    {"fritz", "friedrich"},
+    {"ferdi", "ferdinand"},
+    {"sepp", "josef"},
+    {"pepi", "josef"},
+    {"hansi", "hans", "johann"},
+    {"andi", "andreas"},
+    {"franzi", "franz", "franziska"},
+    {"alex", "alexander", "alexandra"},
+    {"gabi", "gabriele", "gabriela"},
+    {"gerti", "gertrud"},
+    {"kathi", "katharina", "kathrin", "katrin"},
+    {"michi", "michael", "michaela"},
+    {"mike", "michael"},
+    {"tom", "thomas"},
+    {"thomi", "thomas"},
+    {"susi", "susanne", "susanna"},
+    {"uli", "ulrich", "ulrike"},
+    {"ulli", "ulrich", "ulrike"},
+    {"willi", "wilhelm"},
+    {"lisi", "elisabeth"},
+    {"liesi", "elisabeth"},
+    {"resi", "theresia", "therese"},
+    {"rudi", "rudolf"},
+    {"ruedi", "rudolf"},
+    {"wolfi", "wolfgang"},
+]
+
+def first_name_forms(value: str) -> set[str]:
+    forms = set(normalized(value).split())
+    for group in FIRST_NAME_ALIAS_GROUPS:
+        if forms & group:
+            forms.update(group)
+    return forms
+
+
 def first_names_equivalent(left: str, right: str) -> bool:
-    left_tokens, right_tokens = normalized(left).split(), normalized(right).split()
+    left_tokens, right_tokens = first_name_forms(left), first_name_forms(right)
     if not left_tokens or not right_tokens:
         return False
     for left_token in left_tokens:
