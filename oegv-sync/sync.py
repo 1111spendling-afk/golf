@@ -383,6 +383,29 @@ def diagnostic_results(page) -> list[str]:
     return details
 
 
+def search_variants(first_name: str, last_name: str) -> list[tuple[str, str]]:
+    first_tokens = normalized(first_name).split()
+    last_tokens = normalized(last_name).split()
+    first_queries = []
+    for token in first_tokens:
+        for query in (token[:6], token):
+            if len(query) >= 2 and query not in first_queries:
+                first_queries.append(query)
+    last_queries = []
+    for token in sorted(last_tokens, key=len):
+        for query in (token[:6], token):
+            if len(query) >= 2 and query not in last_queries:
+                last_queries.append(query)
+    for query in (normalized(last_name)[:12], normalized(last_name)):
+        if len(query) >= 2 and query not in last_queries:
+            last_queries.append(query)
+    variants = []
+    for last_query in last_queries:
+        for first_query in first_queries:
+            variants.append((last_query, first_query))
+    return variants
+
+
 def process_missing_players(players: list[dict[str, str]], perform_add: bool) -> list[dict[str, str]]:
     added: list[dict[str, str]] = []
     if not players:
@@ -402,20 +425,30 @@ def process_missing_players(players: list[dict[str, str]], perform_add: bool) ->
                     print(f"DAUERHAFT AUSGESCHLOSSEN: {last_name} {first_name} – {club}")
                     continue
                 print(f"DIAGNOSE SUCHE: {last_name}, {first_name} | Masterlisten-Club: {club}")
-                if not click_if_present(page, ["a:has-text('Freunde hinzufügen')", "button:has-text('Freunde hinzufügen')"]):
-                    raise RuntimeError("ÖGV-Schaltfläche 'Freunde hinzufügen' wurde nicht gefunden.")
-                if not fill_if_present(page, ["input[name*='nach' i]", "input[placeholder*='Nachname' i]", "input[aria-label*='Nachname' i]"], last_name[:20]):
-                    raise RuntimeError(f"ÖGV-Nachnamefeld für {first_name} {last_name} wurde nicht gefunden.")
-                if not fill_if_present(page, ["input[name*='vor' i]", "input[placeholder*='Vorname' i]", "input[aria-label*='Vorname' i]"], first_name[:20]):
-                    raise RuntimeError(f"ÖGV-Vornamefeld für {first_name} wurde nicht gefunden.")
-                if not click_if_present(page, ["button:has-text('Suchen')", "input[value='Suchen']"]):
-                    raise RuntimeError(f"ÖGV-Suche für {first_name} {last_name} konnte nicht gestartet werden.")
-                page.wait_for_timeout(1_500)
+                candidates = []
+                used_query = None
+                for query_last, query_first in search_variants(first_name, last_name):
+                    if not click_if_present(page, ["a:has-text('Freunde hinzufügen')", "button:has-text('Freunde hinzufügen')"]):
+                        raise RuntimeError("ÖGV-Schaltfläche 'Freunde hinzufügen' wurde nicht gefunden.")
+                    if not fill_if_present(page, ["input[name*='nach' i]", "input[placeholder*='Nachname' i]", "input[aria-label*='Nachname' i]"], query_last):
+                        raise RuntimeError(f"ÖGV-Nachnamefeld für {first_name} {last_name} wurde nicht gefunden.")
+                    if not fill_if_present(page, ["input[name*='vor' i]", "input[placeholder*='Vorname' i]", "input[aria-label*='Vorname' i]"], query_first):
+                        raise RuntimeError(f"ÖGV-Vornamefeld für {first_name} {last_name} wurde nicht gefunden.")
+                    if not click_if_present(page, ["button:has-text('Suchen')", "input[value='Suchen']"]):
+                        raise RuntimeError(f"ÖGV-Suche für {first_name} {last_name} konnte nicht gestartet werden.")
+                    page.wait_for_timeout(1_200)
+                    candidates = find_result_candidates(page, first_name, last_name, club, whi)
+                    print(f"DIAGNOSE SUCHVERSUCH: Nachname='{query_last}', Vorname='{query_first}' → {len(candidates)} Treffer")
+                    if candidates:
+                        used_query = (query_last, query_first)
+                        break
+                if used_query is None:
+                    diagnostic_snapshot(page, first_name, last_name, club, "MANUELL PRÜFEN: keine Treffer nach Namensvarianten")
+                    print(f"MANUELL PRÜFEN: {first_name} {last_name} – keine Treffer nach Namensvarianten")
+                    continue
                 details = diagnostic_results(page) if DIAGNOSTIC else []
                 for detail in details:
                     print(f"DIAGNOSE TREFFER: {detail}")
-                candidates = find_result_candidates(page, first_name, last_name, club, whi)
-                print(f"DIAGNOSE ERGEBNIS: {len(candidates)} sichtbare Treffer")
                 eligible = [candidate for candidate in candidates if candidate["score"] >= 2]
                 choice = None
                 review_reason = ""
