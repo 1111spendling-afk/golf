@@ -68,9 +68,18 @@ def normalized(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", plain).strip()
 
 
+CLUB_GENERIC_WORDS = {
+    "gc", "golf", "club", "golfclub", "golfanlage", "golfplatz",
+    "golfpark", "country", "resort", "diamond", "schloss",
+    "e", "v", "ev", "gemeinde", "anlage",
+}
+
+
 def club_key(value: str) -> tuple[str, ...]:
-    generic = {"gc", "golf", "club", "golfclub", "golfanlage", "golfplatz", "schloss", "country", "resort", "e", "v"}
-    return tuple(token for token in normalized(value).split() if token not in generic)
+    tokens = normalized(value).split()
+    return tuple(token for token in tokens if token not in CLUB_GENERIC_WORDS and len(token) >= 3)
+
+
 
 
 CLUB_ALIAS_GROUPS = [
@@ -97,7 +106,8 @@ def clubs_equivalent(left: str, right: str) -> bool:
     left_tokens, right_tokens = club_match_tokens(left), club_match_tokens(right)
     if not left_tokens or not right_tokens:
         return False
-    if left_tokens & right_tokens:
+    common = left_tokens & right_tokens
+    if any(len(token) >= 4 for token in common):
         return True
     for left_token in left_tokens:
         for right_token in right_tokens:
