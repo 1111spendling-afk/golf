@@ -102,7 +102,7 @@ def first_names_equivalent(left: str, right: str) -> bool:
     for left_token in left_tokens:
         for right_token in right_tokens:
             shorter, longer = sorted((left_token, right_token), key=len)
-            if left_token == right_token or (len(shorter) >= 3 and longer.startswith(shorter)) or edit_distance(left_token, right_token) <= 1:
+            if left_token == right_token or (len(shorter) >= 3 and longer.startswith(shorter)) or edit_distance(left_token, right_token) <= (2 if len(shorter) >= 6 else 1):
                 return True
     return False
 
