@@ -124,7 +124,7 @@ def find_result_button(page, first_name: str, last_name: str, club: str):
     """Match the visible name/club row with the red add button on the same height."""
     wanted_name = normalized(f"{first_name} {last_name}")
     wanted_name_reverse = normalized(f"{last_name} {first_name}")
-    wanted_club = club_key(club)
+    wanted_club = normalized(club)
     row_boxes = page.evaluate(
         """
         ({name, reverseName, club}) => {
