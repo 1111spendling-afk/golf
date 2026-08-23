@@ -287,6 +287,9 @@ def process_missing_players(players: list[dict[str, str]], perform_add: bool) ->
                 club = str(player.get("homeClub", "")).strip()
                 if not first_name or not last_name or not club:
                     continue
+                if normalized(first_name) == "thomas" and normalized(last_name) == "popp":
+                    print(f"DAUERHAFT AUSGESCHLOSSEN: {last_name} {first_name} – {club}")
+                    continue
                 print(f"DIAGNOSE SUCHE: {last_name}, {first_name} | Masterlisten-Club: {club}")
                 if not click_if_present(page, ["a:has-text('Freunde hinzufügen')", "button:has-text('Freunde hinzufügen')"]):
                     raise RuntimeError("ÖGV-Schaltfläche 'Freunde hinzufügen' wurde nicht gefunden.")
