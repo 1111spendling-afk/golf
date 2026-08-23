@@ -128,19 +128,19 @@ def find_result_button(page, first_name: str, last_name: str, club: str):
           };
           const firstName = name.split(" ")[0] || "";
           const lastName = name.split(" ").slice(1).join(" ");
-          const nameMatches = text => {
-            if (text.includes(needle) || text.includes(reverseName)) return true;
+          const nameMatches = (text, needle, reverseNeedle) => {
+            if (text.includes(needle) || text.includes(reverseNeedle)) return true;
             const tokens = text.split(/\\s+/).filter(Boolean);
             return Boolean(lastName && text.includes(lastName) && tokens.some(token => editDistance(token, firstName) <= 1));
           };
           const smallest = (needle, allowReverse = false) => Array.from(document.querySelectorAll("body *"))
             .filter(element => {
               const text = normalize(element.innerText || element.textContent || "");
-              const hit = allowReverse ? nameMatches(text) : text.includes(needle);
+              const hit = allowReverse ? nameMatches(text, needle, reverseName) : text.includes(needle);
               if (!hit || !visible(element)) return false;
               return !Array.from(element.children).some(child => {
                 const childText = normalize(child.innerText || child.textContent || "");
-                return allowReverse ? nameMatches(childText) : childText.includes(needle);
+                return allowReverse ? nameMatches(childText, needle, reverseName) : childText.includes(needle);
               });
             })
             .map(element => {
