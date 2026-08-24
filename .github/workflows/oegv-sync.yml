@@ -152,6 +152,7 @@ jobs:
           OEGV_DIAGNOSTIC: ${{ steps.local_time.outputs.sync_mode == 'diagnose' && '1' || '0' }}
           MGA_SYNC_URL: https://mga-turnieranmeldung.bonso1.chatgpt.site/api/admin/masterliste/oegv-sync
           MGA_SYNC_TOKEN: ${{ secrets.MGA_SYNC_TOKEN }}
+          WEBMASTER_ID: ${{ steps.local_time.outputs.webmaster_id }}
           MGA_SITE_BYPASS_TOKEN: ${{ secrets.MGA_SITE_BYPASS_TOKEN }}
         run: |
           python oegv-sync/sync.py
