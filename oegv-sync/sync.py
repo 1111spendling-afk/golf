@@ -503,12 +503,13 @@ def diagnose_missing_players(players: list[dict[str, str]]) -> None:
 
 
 def post_to_mga(players: list[dict[str, str]], mode: str, added_players: list[dict[str, str]] | None = None) -> dict:
+    webmaster_id = int(os.environ.get("WEBMASTER_ID", "1") or "1")
     target = env("MGA_SYNC_URL")
     token = env("MGA_SYNC_TOKEN")
     sites_bypass_token = env("MGA_SITE_BYPASS_TOKEN")
     request = urllib.request.Request(
         target,
-        data=json.dumps({"players": players, "mode": mode, "addedPlayers": added_players or []}).encode("utf-8"),
+        data=json.dumps({"players": players, "mode": mode, "webmasterId": webmaster_id, "addedPlayers": added_players or []}).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {token}",
