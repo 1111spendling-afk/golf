@@ -117,15 +117,15 @@ jobs:
 
           webmaster_id = int(os.environ.get("WEBMASTER_ID") or "1")
 
-          # Manfred ist Webmaster-ID 2. Nur für diesen Account werden die
-          # bereits vorhandenen persönlichen GitHub-Secrets verwendet.
+          # Der ursprüngliche Hauptaccount ist Webmaster-ID 1. Nur für diesen
+          # Account werden die bereits vorhandenen persönlichen GitHub-Secrets verwendet.
           # Für keinen anderen Webmaster gibt es einen Fallback auf Manfred.
-          if webmaster_id == 2:
+          if webmaster_id == 1:
               username = os.environ.get("MANFRED_OEGV_USER", "").strip()
               password = os.environ.get("MANFRED_OEGV_PASSWORD", "")
               if not username or not password:
                   raise RuntimeError(
-                      "Für Webmaster-ID 2 fehlen die persönlichen GitHub-Secrets OEGV_USER/OEGV_PASSWORD."
+                      "Für Webmaster-ID 1 fehlen die persönlichen GitHub-Secrets OEGV_USER/OEGV_PASSWORD."
                   )
               source = "persönliche GitHub-Secrets"
           else:
