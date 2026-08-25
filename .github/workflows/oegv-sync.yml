@@ -27,6 +27,11 @@ on:
           - add_missing
           - whi
           - diagnose
+      webmaster_id:
+        description: MGA-Webmaster-ID
+        required: true
+        default: 1
+        type: string
   schedule:
     # Der automatische Cron bleibt ausschließlich der offizielle WHI-Abgleich.
     - cron: "0 8,9 * * *"
@@ -108,6 +113,7 @@ jobs:
           MGA_SYNC_URL: https://mga-turnieranmeldung.bonso1.chatgpt.site/api/admin/masterliste/oegv-sync
           MGA_SYNC_TOKEN: ${{ secrets.MGA_SYNC_TOKEN }}
           MGA_SITE_BYPASS_TOKEN: ${{ secrets.MGA_SITE_BYPASS_TOKEN }}
+          WEBMASTER_ID: ${{ inputs.webmaster_id || 1 }}
         run: python oegv-sync/sync.py
 
 
