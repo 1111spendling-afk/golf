@@ -1,5 +1,6 @@
 name: Masterlist / Friendslist
 
+
 run-name: >-
   ${{ github.event_name == 'schedule'
     && 'Masterlist Friendslist Abgleich (automatisch)'
@@ -26,21 +27,20 @@ on:
           - add_missing
           - whi
           - diagnose
-      webmaster_id:
-        description: "Webmaster-ID"
-        required: false
-        default: "1"
-        type: string
   schedule:
+    # Der automatische Cron bleibt ausschließlich der offizielle WHI-Abgleich.
     - cron: "0 8,9 * * *"
     - cron: "0 22,23 * * *"
+
 
 permissions:
   contents: read
 
+
 concurrency:
   group: mga-oegv-sync
   cancel-in-progress: false
+
 
 jobs:
   sync:
@@ -54,7 +54,6 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           SCHEDULE: ${{ github.event.schedule }}
           DISPATCH_MODE: ${{ inputs.mode }}
-          WEBMASTER_ID: ${{ inputs.webmaster_id || '1' }}
         run: |
           local_time="$(TZ=Europe/Vienna date +%H:%M)"
           local_offset="$(TZ=Europe/Vienna date +%z)"
@@ -67,26 +66,24 @@ jobs:
             echo "Manueller Vorgang: $DISPATCH_MODE"
             echo "run_sync=true" >> "$GITHUB_OUTPUT"
             echo "sync_mode=${DISPATCH_MODE:-compare}" >> "$GITHUB_OUTPUT"
-            echo "webmaster_id=${WEBMASTER_ID:-1}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           case "$SCHEDULE" in
-          "0 8,9 * * *")
-            if [ "$local_time" = "10:00" ]; then echo "run_sync=true" >> "$GITHUB_OUTPUT"; else echo "run_sync=false" >> "$GITHUB_OUTPUT"; fi
-            ;;
-          "0 22,23 * * *")
-            if [ "$local_time" = "00:00" ]; then echo "run_sync=true" >> "$GITHUB_OUTPUT"; else echo "run_sync=false" >> "$GITHUB_OUTPUT"; fi
-            ;;
-          *)
-            echo "run_sync=false" >> "$GITHUB_OUTPUT"
-            ;;
+            "0 8,9 * * *")
+              if [ "$local_time" = "10:00" ]; then echo "run_sync=true" >> "$GITHUB_OUTPUT"; else echo "run_sync=false" >> "$GITHUB_OUTPUT"; fi
+              ;;
+            "0 22,23 * * *")
+              if [ "$local_time" = "00:00" ]; then echo "run_sync=true" >> "$GITHUB_OUTPUT"; else echo "run_sync=false" >> "$GITHUB_OUTPUT"; fi
+              ;;
+            *)
+              echo "run_sync=false" >> "$GITHUB_OUTPUT"
+              ;;
           esac
           echo "sync_mode=whi" >> "$GITHUB_OUTPUT"
-          echo "webmaster_id=1" >> "$GITHUB_OUTPUT"
-
       - name: Abgleichcode laden
         if: steps.local_time.outputs.run_sync == 'true'
         uses: actions/checkout@v4
+
 
       - name: Python einrichten
         if: steps.local_time.outputs.run_sync == 'true'
@@ -94,86 +91,25 @@ jobs:
         with:
           python-version: "3.12"
 
+
       - name: Browser-Automatisierung installieren
         if: steps.local_time.outputs.run_sync == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install -r oegv-sync/requirements.txt
           python -m playwright install --with-deps chromium
-
-      - name: ÖGV-Zugang des Webmasters laden
-        if: steps.local_time.outputs.run_sync == 'true'
-        env:
-          WEBMASTER_ID: ${{ steps.local_time.outputs.webmaster_id }}
-          MANFRED_OEGV_USER: ${{ secrets.OEGV_USER }}
-          MANFRED_OEGV_PASSWORD: ${{ secrets.OEGV_PASSWORD }}
-          MGA_CREDENTIALS_URL: https://mga-turnieranmeldung.bonso1.chatgpt.site/api/admin/masterliste/oegv-credentials
-          MGA_SYNC_TOKEN: ${{ secrets.MGA_SYNC_TOKEN }}
-          MGA_SITE_BYPASS_TOKEN: ${{ secrets.MGA_SITE_BYPASS_TOKEN }}
-        run: |
-          python - <<'PY'
-          import json, os, urllib.request
-          from urllib.error import HTTPError, URLError
-
-          webmaster_id = int(os.environ.get("WEBMASTER_ID") or "1")
-
-          # Der ursprüngliche Hauptaccount ist Webmaster-ID 1. Nur für diesen
-          # Account werden die bereits vorhandenen persönlichen GitHub-Secrets verwendet.
-          # Für keinen anderen Webmaster gibt es einen Fallback auf Manfred.
-          if webmaster_id == 1:
-              username = os.environ.get("MANFRED_OEGV_USER", "").strip()
-              password = os.environ.get("MANFRED_OEGV_PASSWORD", "")
-              if not username or not password:
-                  raise RuntimeError(
-                      "Für Webmaster-ID 1 fehlen die persönlichen GitHub-Secrets OEGV_USER/OEGV_PASSWORD."
-                  )
-              source = "persönliche GitHub-Secrets"
-          else:
-              request = urllib.request.Request(
-                  os.environ["MGA_CREDENTIALS_URL"],
-                  data=json.dumps({"webmasterId": webmaster_id}).encode("utf-8"),
-                  headers={
-                      "Content-Type": "application/json",
-                      "Authorization": "Bearer " + os.environ["MGA_SYNC_TOKEN"],
-                      "OAI-Sites-Authorization": "Bearer " + os.environ["MGA_SITE_BYPASS_TOKEN"],
-                  },
-                  method="POST",
-              )
-              try:
-                  with urllib.request.urlopen(request, timeout=60) as response:
-                      data = json.loads(response.read().decode("utf-8"))
-              except (HTTPError, URLError) as error:
-                  raise RuntimeError(
-                      f"ÖGV-Zugang für Webmaster-ID {webmaster_id} konnte nicht aus der MGA-Verwaltung geladen werden."
-                  ) from error
-
-              username = str(data.get("username") or "").strip()
-              password = str(data.get("password") or "")
-              if not username or not password:
-                  raise RuntimeError(
-                      f"Kein vollständiger ÖGV-Zugang für Webmaster-ID {webmaster_id} in der MGA-Verwaltung gespeichert."
-                  )
-              source = "MGA-Verwaltung"
-
-          print("::add-mask::" + username)
-          print("::add-mask::" + password)
-          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
-              env.write("OEGV_USER=" + username + "\n")
-              env.write("OEGV_PASSWORD=" + password + "\n")
-          print(f"ÖGV-Zugang für Webmaster-ID {webmaster_id} aus {source} geladen.")
-          PY
-
       - name: ÖGV Friendslist Vorgang ausführen
         if: steps.local_time.outputs.run_sync == 'true'
         env:
+          OEGV_USER: ${{ secrets.OEGV_USER }}
+          OEGV_PASSWORD: ${{ secrets.OEGV_PASSWORD }}
           OEGV_MODE: ${{ steps.local_time.outputs.sync_mode }}
           OEGV_DIAGNOSTIC: ${{ steps.local_time.outputs.sync_mode == 'diagnose' && '1' || '0' }}
           MGA_SYNC_URL: https://mga-turnieranmeldung.bonso1.chatgpt.site/api/admin/masterliste/oegv-sync
           MGA_SYNC_TOKEN: ${{ secrets.MGA_SYNC_TOKEN }}
-          WEBMASTER_ID: ${{ steps.local_time.outputs.webmaster_id }}
           MGA_SITE_BYPASS_TOKEN: ${{ secrets.MGA_SITE_BYPASS_TOKEN }}
-        run: |
-          python oegv-sync/sync.py
+        run: python oegv-sync/sync.py
+
 
       - name: Diagnose-Screenshots als Artifact speichern
         if: always() && steps.local_time.outputs.run_sync == 'true' && steps.local_time.outputs.sync_mode == 'diagnose'
