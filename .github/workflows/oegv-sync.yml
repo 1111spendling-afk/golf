@@ -105,34 +105,43 @@ jobs:
         if: steps.local_time.outputs.run_sync == 'true'
         env:
           WEBMASTER_ID: ${{ steps.local_time.outputs.webmaster_id }}
-          OEGV_USER_1: ${{ secrets.OEGV_USER_1 }}
-          OEGV_PASSWORD_1: ${{ secrets.OEGV_PASSWORD_1 }}
-          OEGV_USER_2: ${{ secrets.OEGV_USER_2 }}
-          OEGV_PASSWORD_2: ${{ secrets.OEGV_PASSWORD_2 }}
-          OEGV_USER_3: ${{ secrets.OEGV_USER_3 }}
-          OEGV_PASSWORD_3: ${{ secrets.OEGV_PASSWORD_3 }}
-          OEGV_USER_4: ${{ secrets.OEGV_USER_4 }}
-          OEGV_PASSWORD_4: ${{ secrets.OEGV_PASSWORD_4 }}
-          OEGV_USER_5: ${{ secrets.OEGV_USER_5 }}
-          OEGV_PASSWORD_5: ${{ secrets.OEGV_PASSWORD_5 }}
+          MGA_CREDENTIALS_URL: https://mga-turnieranmeldung.bonso1.chatgpt.site/api/admin/masterliste/oegv-credentials
+          MGA_SYNC_TOKEN: ${{ secrets.MGA_SYNC_TOKEN }}
         run: |
           python - <<'PY'
-          import os
+          import json, os, urllib.request
+          from urllib.error import HTTPError, URLError
 
           webmaster_id = int(os.environ.get("WEBMASTER_ID") or "1")
-          username = os.environ.get(f"OEGV_USER_{webmaster_id}", "").strip()
-          password = os.environ.get(f"OEGV_PASSWORD_{webmaster_id}", "")
+          request = urllib.request.Request(
+              os.environ["MGA_CREDENTIALS_URL"],
+              data=json.dumps({"webmasterId": webmaster_id}).encode("utf-8"),
+              headers={
+                  "Content-Type": "application/json",
+                  "Authorization": "Bearer " + os.environ["MGA_SYNC_TOKEN"],
+              },
+              method="POST",
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  data = json.loads(response.read().decode("utf-8"))
+          except (HTTPError, URLError) as error:
+              raise RuntimeError(
+                  f"ÖGV-Zugang für Webmaster-ID {webmaster_id} konnte nicht aus der MGA-Verwaltung geladen werden."
+              ) from error
+
+          username = str(data.get("username") or "").strip()
+          password = str(data.get("password") or "")
           if not username or not password:
               raise RuntimeError(
-                  f"Kein vollständiger GitHub-ÖGV-Zugang für Webmaster-ID {webmaster_id} hinterlegt. "
-                  f"Benötigt: OEGV_USER_{webmaster_id} und OEGV_PASSWORD_{webmaster_id}."
+                  f"Kein vollständiger ÖGV-Zugang für Webmaster-ID {webmaster_id} in der MGA-Verwaltung gespeichert."
               )
           print("::add-mask::" + username)
           print("::add-mask::" + password)
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
               env.write("OEGV_USER=" + username + "\n")
               env.write("OEGV_PASSWORD=" + password + "\n")
-          print(f"Getrennter ÖGV-Zugang für Webmaster-ID {webmaster_id} geladen.")
+          print(f"ÖGV-Zugang für Webmaster-ID {webmaster_id} aus der MGA-Verwaltung geladen.")
           PY
 
       - name: ÖGV Friendslist Vorgang ausführen
